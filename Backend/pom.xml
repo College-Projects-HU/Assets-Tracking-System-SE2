@@ -19,6 +19,7 @@
         <module>asset-service</module>
         <module>user-service</module>
         <module>report-service</module>
+        <module>maintenance-service</module>
     </modules>
 
     <properties>
