@@ -79,6 +79,14 @@ mvn spring-boot:run
 cd api-gateway
 mvn spring-boot:run
 
+# Terminal 5 - Report Service
+cd report-service
+mvn spring-boot:run
+
+# Terminal 6 - Notification Service
+cd notification-service
+mvn spring-boot:run
+
 # Add other services as needed
 ```
 

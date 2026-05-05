@@ -1,0 +1,302 @@
+{
+  "info": {
+    "_postman_id": "6d4b5d5a-7d6f-4c18-8cb4-1f4d4b8ed001",
+    "name": "Asset Tracking System APIs",
+    "description": "Postman collection for the report and notification APIs exposed through the API Gateway.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8080/api"
+    },
+    {
+      "key": "token",
+      "value": "<paste-jwt-token-here>"
+    },
+    {
+      "key": "userId",
+      "value": "7"
+    }
+  ],
+  "item": [
+    {
+      "name": "Reports",
+      "item": [
+        {
+          "name": "Dashboard Stats",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/reports/dashboard-stats",
+              "host": ["{{baseUrl}}"],
+              "path": ["reports", "dashboard-stats"]
+            }
+          }
+        },
+        {
+          "name": "Full Inventory",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/reports/full-inventory?category=Laptop&status=ACTIVE",
+              "host": ["{{baseUrl}}"],
+              "path": ["reports", "full-inventory"],
+              "query": [
+                {
+                  "key": "category",
+                  "value": "Laptop"
+                },
+                {
+                  "key": "status",
+                  "value": "ACTIVE"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Full Inventory CSV Export",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/reports/full-inventory/export",
+              "host": ["{{baseUrl}}"],
+              "path": ["reports", "full-inventory", "export"]
+            }
+          }
+        },
+        {
+          "name": "Maintenance Summary",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/reports/maintenance-summary",
+              "host": ["{{baseUrl}}"],
+              "path": ["reports", "maintenance-summary"]
+            }
+          }
+        },
+        {
+          "name": "Warranty Expiry",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/reports/warranty-expiry?days=30",
+              "host": ["{{baseUrl}}"],
+              "path": ["reports", "warranty-expiry"],
+              "query": [
+                {
+                  "key": "days",
+                  "value": "30"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Audit Log",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/reports/audit-log?page=0&size=20&actor=admin",
+              "host": ["{{baseUrl}}"],
+              "path": ["reports", "audit-log"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "0"
+                },
+                {
+                  "key": "size",
+                  "value": "20"
+                },
+                {
+                  "key": "actor",
+                  "value": "admin"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Audit Log CSV Export",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/reports/audit-log/export?page=0&size=1000",
+              "host": ["{{baseUrl}}"],
+              "path": ["reports", "audit-log", "export"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "0"
+                },
+                {
+                  "key": "size",
+                  "value": "1000"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Notifications",
+      "item": [
+        {
+          "name": "Create Notification",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"recipientId\": 7,\n  \"message\": \"Assignment created\",\n  \"type\": \"ASSIGNMENT\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/notifications",
+              "host": ["{{baseUrl}}"],
+              "path": ["notifications"]
+            }
+          }
+        },
+        {
+          "name": "Get Unread Notifications",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-User-Id",
+                "value": "{{userId}}"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/notifications",
+              "host": ["{{baseUrl}}"],
+              "path": ["notifications"]
+            }
+          }
+        },
+        {
+          "name": "Mark Notification Read",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "X-User-Id",
+                "value": "{{userId}}"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/notifications/1/read",
+              "host": ["{{baseUrl}}"],
+              "path": ["notifications", "1", "read"]
+            }
+          }
+        },
+        {
+          "name": "Internal Assignment Trigger",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"recipientId\": 7,\n  \"message\": \"Assignment assigned\",\n  \"type\": \"ASSIGNMENT\",\n  \"referenceId\": \"A-100\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/notifications/internal/assignment",
+              "host": ["{{baseUrl}}"],
+              "path": ["notifications", "internal", "assignment"]
+            }
+          }
+        },
+        {
+          "name": "Internal Maintenance Trigger",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"recipientId\": 7,\n  \"message\": \"Maintenance completed\",\n  \"type\": \"MAINTENANCE\",\n  \"referenceId\": \"M-100\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/notifications/internal/maintenance",
+              "host": ["{{baseUrl}}"],
+              "path": ["notifications", "internal", "maintenance"]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}
