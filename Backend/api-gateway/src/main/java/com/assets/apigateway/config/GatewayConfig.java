@@ -45,6 +45,12 @@ public class GatewayConfig {
                         .filters(f -> f.filter(jwtAuthenticationFilterFactory.apply(new JwtAuthenticationFilterFactory.Config())))
                         .uri("lb://maintenance-service"))
 
+                // Notification Service routes - JWT required
+                .route("notification-service", r -> r
+                        .path("/api/notifications/**")
+                        .filters(f -> f.filter(jwtAuthenticationFilterFactory.apply(new JwtAuthenticationFilterFactory.Config())))
+                        .uri("lb://notification-service"))
+
                 .build();
     }
 }
