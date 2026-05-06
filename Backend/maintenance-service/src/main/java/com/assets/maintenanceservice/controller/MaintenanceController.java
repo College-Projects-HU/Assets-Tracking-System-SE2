@@ -1,0 +1,76 @@
+package com.assets.maintenanceservice.controller;
+
+import com.assets.maintenanceservice.dto.MaintenanceNotesDTO;
+import com.assets.maintenanceservice.dto.MaintenanceTicketDTO;
+import com.assets.maintenanceservice.dto.MaintenanceTicketRequestDTO;
+import com.assets.maintenanceservice.service.MaintenanceService;
+import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.web.PageableDefault;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.web.bind.annotation.*;
+
+@RestController
+@RequestMapping("/api/maintenance")
+@RequiredArgsConstructor
+public class MaintenanceController {
+
+    private final MaintenanceService maintenanceService;
+
+    @PostMapping
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<MaintenanceTicketDTO> createTicket(
+            @Valid @RequestBody MaintenanceTicketRequestDTO requestDTO,
+            @RequestHeader(value = "X-User-Id", required = false) Long userId,
+            @RequestHeader(value = "X-User-Role", required = false) String userRole) {
+        return new ResponseEntity<>(maintenanceService.createTicket(requestDTO, userId, userRole), HttpStatus.CREATED);
+    }
+
+    @PutMapping("/{id}/status")
+    @PreAuthorize("hasAnyRole('ADMIN', 'ASSET_MANAGER', 'TECHNICIAN')")
+    public ResponseEntity<MaintenanceTicketDTO> updateTicketStatus(
+            @PathVariable("id") Long id,
+            @RequestParam("status") String status) {
+        return ResponseEntity.ok(maintenanceService.updateTicketStatus(id, status));
+    }
+
+    @PostMapping("/{id}/notes")
+    @PreAuthorize("hasAnyRole('ADMIN', 'ASSET_MANAGER', 'TECHNICIAN')")
+    public ResponseEntity<MaintenanceTicketDTO> addNotes(
+            @PathVariable("id") Long id,
+            @Valid @RequestBody MaintenanceNotesDTO notesDTO) {
+        return ResponseEntity.ok(maintenanceService.addNotes(id, notesDTO));
+    }
+
+    @GetMapping
+    @PreAuthorize("hasAnyRole('ADMIN', 'ASSET_MANAGER', 'TECHNICIAN')")
+    public ResponseEntity<Page<MaintenanceTicketDTO>> getAllTickets(
+            @PageableDefault(size = 20, sort = "createdAt") Pageable pageable) {
+        return ResponseEntity.ok(maintenanceService.getAllTickets(pageable));
+    }
+
+    @GetMapping("/my")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<Page<MaintenanceTicketDTO>> getMyTickets(
+            @RequestHeader(value = "X-User-Id", required = false) Long userId,
+            @PageableDefault(size = 20) Pageable pageable) {
+        return ResponseEntity.ok(maintenanceService.getMyTickets(userId, pageable));
+    }
+
+    @GetMapping("/{id}")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<MaintenanceTicketDTO> getTicketById(@PathVariable("id") Long id) {
+        return ResponseEntity.ok(maintenanceService.getTicketById(id));
+    }
+
+    @GetMapping("/upcoming")
+    @PreAuthorize("hasAnyRole('ADMIN', 'ASSET_MANAGER', 'TECHNICIAN')")
+    public ResponseEntity<Page<MaintenanceTicketDTO>> getUpcomingMaintenance(
+            @PageableDefault(size = 20, sort = "scheduledDate") Pageable pageable) {
+        return ResponseEntity.ok(maintenanceService.getUpcomingMaintenance(pageable));
+    }
+}
