@@ -1,5 +1,28 @@
-# Logs
-logs
+# ==========================================
+# FULL STACK .GITIGNORE (React + Spring Boot)
+# ==========================================
+
+# ------------------------------------------
+# 1. DEPENDENCIES & BUILD DIRECTORIES
+# ------------------------------------------
+# Node.js / React (Frontend)
+node_modules/
+dist/
+dist-ssr/
+build/
+.npm/
+
+# Java / Spring Boot / Maven (Backend)
+target/
+*.jar
+*.war
+*.ear
+.mvn/wrapper/maven-wrapper.jar
+
+# ------------------------------------------
+# 2. LOGS
+# ------------------------------------------
+logs/
 *.log
 npm-debug.log*
 yarn-debug.log*
@@ -7,18 +30,51 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
-node_modules
-dist
-dist-ssr
-*.local
+# ------------------------------------------
+# 3. ENVIRONMENT VARIABLES & SECRETS
+# ------------------------------------------
+# Never commit your environment variables as they contain secrets!
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+*.pem
+*.keystore
+*.jks
 
-# Editor directories and files
+# ------------------------------------------
+# 4. IDEs & EDITORS
+# ------------------------------------------
+# VS Code
 .vscode/*
 !.vscode/extensions.json
-.idea
+*.code-workspace
+
+# IntelliJ IDEA / WebStorm
+.idea/
+*.iws
+*.iml
+*.ipr
+out/
+
+# ------------------------------------------
+# 5. OS GENERATED FILES
+# ------------------------------------------
+# macOS
 .DS_Store
-*.suo
-*.ntvs*
-*.njsproj
-*.sln
-*.sw?
+.AppleDouble
+.LSOverride
+Icon
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# ------------------------------------------
+# 6. TESTING & COVERAGE
+# ------------------------------------------
+coverage/
+.nyc_output/
