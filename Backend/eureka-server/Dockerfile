@@ -1,14 +1,6 @@
-# ---- Stage 1: Build ----
-FROM maven:3.9-eclipse-temurin-21 AS build
-WORKDIR /app
-COPY pom.xml .
-RUN mvn dependency:go-offline -B
-COPY src ./src
-RUN mvn clean package -DskipTests -B
-# ---- Stage 2: Run ----
 FROM eclipse-temurin:21-jdk-alpine
+RUN apk add --no-cache curl
 WORKDIR /app
-COPY --from=build /app/target/eureka-server.jar app.jar
-EXPOSE 8761
+COPY target/eureka-server.jar app.jar
 ENV JAVA_OPTS="-Xms256m -Xmx512m"
 ENTRYPOINT ["sh", "-c", "java $JAVA_OPTS -jar app.jar"]

@@ -1,6 +1,6 @@
 FROM eclipse-temurin:21-jdk-alpine
 RUN apk add --no-cache curl
 WORKDIR /app
-COPY target/config-server.jar app.jar
+COPY target/asset-service.jar app.jar
 ENV JAVA_OPTS="-Xms256m -Xmx512m"
 ENTRYPOINT ["sh", "-c", "java $JAVA_OPTS -jar app.jar"]
