@@ -9,6 +9,8 @@ import org.springframework.stereotype.Service;
 
 import java.security.Key;
 import java.util.Date;
+import com.assets.authservice.entity.User;
+
 import java.util.HashMap;
 import java.util.Map;
 import java.util.function.Function;
@@ -33,6 +35,15 @@ public class JwtService {
         return createToken(claims, email, jwtExpirationMs);
     }
 
+    public String generateAccessToken(User user) {
+        Map<String, Object> claims = new HashMap<>();
+        claims.put("userId", user.getId());
+        if (user.getRole() != null) {
+            claims.put("role", user.getRole().getName());
+        }
+        return createToken(claims, user.getEmail(), jwtExpirationMs);
+    }
+
     public String generateRefreshToken(String email) {
         Map<String, Object> claims = new HashMap<>();
         return createToken(claims, email, refreshTokenExpirationMs);
@@ -47,7 +58,7 @@ public class JwtService {
                 .setSubject(subject)
                 .setIssuedAt(now)
                 .setExpiration(expiryDate)
-                .signWith(getSigningKey(), SignatureAlgorithm.HS512)
+                .signWith(getSigningKey(), SignatureAlgorithm.HS256)
                 .compact();
     }
 

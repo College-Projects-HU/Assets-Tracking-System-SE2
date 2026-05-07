@@ -38,7 +38,7 @@ public class AuthService {
         }
 
         // Get or create role
-        Role role = roleRepository.findByName(request.getRole())
+        Role role = roleRepository.findByName(normalizeRoleName(request.getRole()))
                 .orElseThrow(() -> new AuthException("Role not found: " + request.getRole()));
 
         // Create new user
@@ -52,7 +52,7 @@ public class AuthService {
         user = userRepository.save(user);
 
         // Generate tokens
-        String accessToken = jwtService.generateAccessToken(user.getEmail());
+        String accessToken = jwtService.generateAccessToken(user);
         String refreshToken = generateAndSaveRefreshToken(user);
 
         return AuthResponse.builder()
@@ -76,7 +76,7 @@ public class AuthService {
         }
 
         // Generate tokens
-        String accessToken = jwtService.generateAccessToken(user.getEmail());
+        String accessToken = jwtService.generateAccessToken(user);
         String refreshToken = generateAndSaveRefreshToken(user);
 
         return AuthResponse.builder()
@@ -144,6 +144,14 @@ public class AuthService {
 
         refreshTokenRepository.save(token);
         return refreshToken;
+    }
+
+    private String normalizeRoleName(String roleName) {
+        if (roleName == null || roleName.isBlank()) {
+            throw new AuthException("Role is required");
+        }
+        String normalized = roleName.trim().toUpperCase();
+        return normalized.startsWith("ROLE_") ? normalized : "ROLE_" + normalized;
     }
 
     public boolean isTokenBlacklisted(String token) {
