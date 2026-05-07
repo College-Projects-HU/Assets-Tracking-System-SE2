@@ -47,7 +47,7 @@ lerna-debug.log*
 # 4. IDEs & EDITORS
 # ------------------------------------------
 # VS Code
-.vscode/*
+.vscode
 !.vscode/extensions.json
 *.code-workspace
 
