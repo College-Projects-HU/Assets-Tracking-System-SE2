@@ -1,5 +1,7 @@
-import { useState } from 'react';
-import { mockTickets, mockAssets, MaintenanceTicket, TicketPriority, TicketStatus } from '@/lib/mock-data';
+import { useState, useEffect } from 'react';
+import { MaintenanceTicket, TicketPriority, TicketStatus } from '@/lib/mock-data';
+import maintenanceService from '@/services/maintenanceService';
+import assetService from '@/services/assetService';
 import { useAuth } from '@/lib/auth';
 import StatusBadge from '@/components/StatusBadge';
 import { Button } from '@/components/ui/button';
@@ -14,14 +16,29 @@ import { Plus, Search, Eye, MessageSquare } from 'lucide-react';
 export default function MaintenancePage() {
   const { user } = useAuth();
   const isManager = user?.role === 'ADMIN' || user?.role === 'ASSET_MANAGER';
-  const [tickets, setTickets] = useState<MaintenanceTicket[]>(mockTickets);
+  const [tickets, setTickets] = useState<MaintenanceTicket[]>([]);
+  const [assets, setAssets] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    setLoading(true);
+    Promise.all([maintenanceService.getAll(), assetService.getAll()])
+      .then(([tRes, aRes]) => {
+        setTickets(tRes.data || []);
+        setAssets(aRes.data || []);
+        setError(null);
+      })
+      .catch(err => { console.error('Load failed', err); setError('Failed to load data'); })
+      .finally(() => setLoading(false));
+  }, []);
   const [search, setSearch] = useState('');
   const [filterStatus, setFilterStatus] = useState('ALL');
   const [filterPriority, setFilterPriority] = useState('ALL');
   const [createOpen, setCreateOpen] = useState(false);
   const [detailTicket, setDetailTicket] = useState<MaintenanceTicket | null>(null);
   const [noteText, setNoteText] = useState('');
-  const [form, setForm] = useState({ assetId: '', issueDescription: '', priority: 'MEDIUM' as TicketPriority });
+  const [form, setForm] = useState({ assetId: '', issueDescription: '', priority: 'MEDIUM' as TicketPriority, submitError: '' });
 
   // Employees see only their tickets
   const visibleTickets = isManager ? tickets : tickets.filter(t => t.reportedById === user?.id);
@@ -35,51 +52,54 @@ export default function MaintenancePage() {
 
   // Assets assigned to current user (for employees) or all (for managers)
   const assignableAssets = isManager
-    ? mockAssets.filter(a => a.status !== 'RETIRED' && a.status !== 'LOST_STOLEN')
-    : mockAssets.filter(a => a.assignedToId === user?.id);
+    ? assets.filter(a => a.status !== 'RETIRED' && a.status !== 'LOST_STOLEN')
+    : assets.filter(a => a.assignedToId === user?.id);
 
   const handleCreate = () => {
-    const asset = mockAssets.find(a => a.id === Number(form.assetId));
+    const asset = assets.find(a => a.id === Number(form.assetId));
     if (!asset || !user) return;
-    const newTicket: MaintenanceTicket = {
-      id: Date.now(),
-      ticketId: `TKT-${String(tickets.length + 1).padStart(3, '0')}`,
+    setForm(f => ({ ...f, submitError: '' }));
+    maintenanceService.create({
       assetId: asset.id,
-      assetName: asset.name,
-      assetTag: asset.assetTag,
-      reportedBy: user.name,
-      reportedById: user.id,
       issueDescription: form.issueDescription,
       priority: form.priority,
-      status: 'OPEN',
-      notes: [],
-      createdAt: new Date().toISOString().split('T')[0],
-      updatedAt: new Date().toISOString().split('T')[0],
-    };
-    setTickets([newTicket, ...tickets]);
-    setCreateOpen(false);
-    setForm({ assetId: '', issueDescription: '', priority: 'MEDIUM' });
+    }).then((res) => {
+      setTickets([res.data, ...tickets]);
+      setCreateOpen(false);
+      setForm({ assetId: '', issueDescription: '', priority: 'MEDIUM', submitError: '' });
+    }).catch(err => {
+      console.error('Create ticket failed', err);
+      const msg = err?.response?.data?.message || err?.message || 'Failed to submit ticket. Please try again.';
+      setForm(f => ({ ...f, submitError: msg }));
+    });
   };
 
   const handleStatusChange = (ticket: MaintenanceTicket, newStatus: TicketStatus) => {
-    setTickets(tickets.map(t => t.id === ticket.id ? {
-      ...t,
-      status: newStatus,
-      updatedAt: new Date().toISOString().split('T')[0],
-      ...(newStatus === 'RESOLVED' ? { resolvedAt: new Date().toISOString().split('T')[0] } : {}),
-      ...(newStatus === 'CLOSED' ? { closedAt: new Date().toISOString().split('T')[0] } : {}),
-    } : t));
-    if (detailTicket?.id === ticket.id) {
-      setDetailTicket({ ...ticket, status: newStatus, updatedAt: new Date().toISOString().split('T')[0] });
-    }
+    maintenanceService.update(ticket.id, { status: newStatus })
+      .then((res) => {
+        setTickets(tickets.map(t => t.id === ticket.id ? res.data : t));
+        if (detailTicket?.id === ticket.id) {
+          setDetailTicket(res.data);
+        }
+      })
+      .catch(err => {
+        console.error('Update status failed', err);
+        setError('Failed to update ticket status');
+      });
   };
 
   const handleAddNote = () => {
     if (!detailTicket || !noteText.trim()) return;
-    const updated = { ...detailTicket, notes: [...detailTicket.notes, noteText.trim()], updatedAt: new Date().toISOString().split('T')[0] };
-    setTickets(tickets.map(t => t.id === updated.id ? updated : t));
-    setDetailTicket(updated);
-    setNoteText('');
+    maintenanceService.addNote(detailTicket.id, noteText.trim())
+      .then((res) => {
+        setTickets(tickets.map(t => t.id === res.data.id ? res.data : t));
+        setDetailTicket(res.data);
+        setNoteText('');
+      })
+      .catch(err => {
+        console.error('Add note failed', err);
+        setError('Failed to add note');
+      });
   };
 
   const nextStatus: Record<TicketStatus, TicketStatus | null> = {
@@ -134,6 +154,11 @@ export default function MaintenancePage() {
                   </SelectContent>
                 </Select>
               </div>
+              {form.submitError && (
+                <div className="bg-destructive/10 text-destructive border border-destructive/20 rounded-lg p-3 text-sm">
+                  {form.submitError}
+                </div>
+              )}
               <Button onClick={handleCreate} className="w-full" disabled={!form.assetId || !form.issueDescription}>
                 Submit Ticket
               </Button>

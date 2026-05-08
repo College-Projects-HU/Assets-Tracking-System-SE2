@@ -1,5 +1,7 @@
-import { useState } from 'react';
-import { mockStaff, StaffMember, UserRole } from '@/lib/mock-data';
+import { useState, useEffect } from 'react';
+import { StaffMember, UserRole } from '@/lib/mock-data';
+import authService from '@/services/authService';
+import userService from '@/services/userService';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -10,11 +12,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Plus, Search } from 'lucide-react';
 
 export default function StaffPage() {
-  const [staff, setStaff] = useState<StaffMember[]>(mockStaff);
+  const [staff, setStaff] = useState<StaffMember[]>([]);
   const [search, setSearch] = useState('');
   const [filterRole, setFilterRole] = useState('ALL');
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [form, setForm] = useState({ name: '', email: '', role: 'EMPLOYEE' as UserRole, department: '' });
+  const [form, setForm] = useState({ name: '', email: '', password: '', role: 'EMPLOYEE' as UserRole, department: '' });
 
   const filtered = staff.filter(s => {
     const matchSearch = s.name.toLowerCase().includes(search.toLowerCase()) || s.email.toLowerCase().includes(search.toLowerCase());
@@ -23,10 +25,25 @@ export default function StaffPage() {
   });
 
   const handleCreate = () => {
-    setStaff([...staff, { id: Date.now(), ...form, assetsCount: 0, status: 'ACTIVE' }]);
-    setDialogOpen(false);
-    setForm({ name: '', email: '', role: 'EMPLOYEE', department: '' });
+    authService.register({ fullName: form.name, email: form.email, password: form.password, role: form.role })
+      .then(() => userService.getAll())
+      .then(res => {
+        setStaff(res.data || []);
+        setDialogOpen(false);
+        setForm({ name: '', email: '', password: '', role: 'EMPLOYEE', department: '' });
+      })
+      .catch(err => {
+        console.error('Create user failed', err);
+      });
   };
+
+  useEffect(() => {
+    let mounted = true;
+    userService.getAll()
+      .then(res => { if (mounted) setStaff(res.data); })
+      .catch(err => { console.warn('Failed to load staff from backend, falling back to empty list', err); });
+    return () => { mounted = false; };
+  }, []);
 
   const roleBadgeVariant = (role: string) => {
     if (role === 'ADMIN') return 'default';
@@ -59,6 +76,10 @@ export default function StaffPage() {
                 <Input type="email" value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} placeholder="user@company.com" />
               </div>
               <div className="space-y-2">
+                <Label>Password</Label>
+                <Input type="password" value={form.password} onChange={e => setForm({ ...form, password: e.target.value })} placeholder="Create a password" />
+              </div>
+              <div className="space-y-2">
                 <Label>Role</Label>
                 <Select value={form.role} onValueChange={v => setForm({ ...form, role: v as UserRole })}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
@@ -73,7 +94,7 @@ export default function StaffPage() {
                 <Label>Department</Label>
                 <Input value={form.department} onChange={e => setForm({ ...form, department: e.target.value })} placeholder="e.g. IT, Engineering" />
               </div>
-              <Button onClick={handleCreate} className="w-full" disabled={!form.name || !form.email}>Create User</Button>
+              <Button onClick={handleCreate} className="w-full" disabled={!form.name || !form.email || !form.password}>Create User</Button>
             </div>
           </DialogContent>
         </Dialog>
@@ -105,6 +126,7 @@ export default function StaffPage() {
               <TableHead>Department</TableHead>
               <TableHead>Assets</TableHead>
               <TableHead>Status</TableHead>
+              <TableHead className="text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -121,6 +143,17 @@ export default function StaffPage() {
                 <TableCell className="text-muted-foreground">{member.assetsCount}</TableCell>
                 <TableCell>
                   <Badge variant={member.status === 'ACTIVE' ? 'default' : 'secondary'}>{member.status}</Badge>
+                </TableCell>
+                <TableCell className="text-right">
+                  {member.status === 'ACTIVE' && (
+                    <Button variant="outline" size="sm" onClick={() => {
+                      userService.delete(member.id)
+                        .then(() => setStaff(staff.map(item => item.id === member.id ? { ...item, status: 'INACTIVE' } : item)))
+                        .catch(err => console.error('Deactivate user failed', err));
+                    }}>
+                      Deactivate
+                    </Button>
+                  )}
                 </TableCell>
               </TableRow>
             ))}

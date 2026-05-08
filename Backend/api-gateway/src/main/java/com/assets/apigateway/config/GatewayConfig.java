@@ -27,6 +27,11 @@ public class GatewayConfig {
                         .filters(f -> f.filter(jwtAuthenticationFilterFactory.apply(new JwtAuthenticationFilterFactory.Config())))
                         .uri("lb://asset-service"))
 
+                .route("assignment-service", r -> r
+                        .path("/api/assignments", "/api/assignments/**")
+                        .filters(f -> f.filter(jwtAuthenticationFilterFactory.apply(new JwtAuthenticationFilterFactory.Config())))
+                        .uri("lb://asset-service"))
+
                 // User Service routes - JWT required
                 .route("user-service", r -> r
                         .path("/api/users/**")
@@ -44,12 +49,6 @@ public class GatewayConfig {
                         .path("/api/maintenance/**")
                         .filters(f -> f.filter(jwtAuthenticationFilterFactory.apply(new JwtAuthenticationFilterFactory.Config())))
                         .uri("lb://maintenance-service"))
-
-                // Notification Service routes - JWT required
-                .route("notification-service", r -> r
-                        .path("/api/notifications/**")
-                        .filters(f -> f.filter(jwtAuthenticationFilterFactory.apply(new JwtAuthenticationFilterFactory.Config())))
-                        .uri("lb://notification-service"))
 
                 .build();
     }

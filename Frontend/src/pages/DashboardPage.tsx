@@ -1,21 +1,61 @@
 import { Package, Users, CheckCircle, AlertTriangle, Archive, Wrench, ShieldAlert } from 'lucide-react';
-import { dashboardStats, mockAssets, mockHistory, mockTickets } from '@/lib/mock-data';
 import { useAuth } from '@/lib/auth';
 import StatCard from '@/components/StatCard';
 import StatusBadge from '@/components/StatusBadge';
+import { useEffect, useState } from 'react';
+import reportService from '@/services/reportService';
+import assetService from '@/services/assetService';
+import maintenanceService from '@/services/maintenanceService';
 
 export default function DashboardPage() {
   const { user } = useAuth();
   const isManager = user?.role === 'ADMIN' || user?.role === 'ASSET_MANAGER';
 
+  const [stats, setStats] = useState<any | null>(null);
+  const [assets, setAssets] = useState<any[]>([]);
+  const [tickets, setTickets] = useState<any[]>([]);
+  const [history, setHistory] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!user) return;
+
+    setLoading(true);
+    const promises: Promise<any>[] = isManager
+      ? [
+          reportService.getDashboardStats(),
+          assetService.getAll(),
+          maintenanceService.getAll(),
+          reportService.getAuditLog(),
+        ]
+      : [
+          Promise.resolve({ data: null }),
+          Promise.resolve({ data: [] }),
+          maintenanceService.getMyTickets(),
+          Promise.resolve({ data: [] }),
+        ];
+
+    Promise.all(promises).then(([sRes, aRes, mRes, hRes]) => {
+      setStats(sRes.data || null);
+      setAssets(aRes.data || []);
+      setTickets(mRes.data || []);
+      setHistory(hRes.data || []);
+      setError(null);
+    }).catch(err => {
+      console.error('Dashboard load error', err);
+      setError('Failed to load dashboard data from backend');
+    }).finally(() => setLoading(false));
+  }, [isManager, user]);
+
   // Employee-specific data
-  const myAssets = mockAssets.filter(a => a.assignedToId === user?.id);
-  const myTickets = mockTickets.filter(t => t.reportedById === user?.id);
+  const myAssets = assets.filter(a => a.assignedToId === user?.id);
+  const myTickets = tickets.filter(t => t.reportedById === user?.id);
   const myOpenTickets = myTickets.filter(t => t.status === 'OPEN' || t.status === 'IN_PROGRESS');
 
-  const recentAssets = mockAssets.slice(0, 5);
-  const recentHistory = mockHistory.slice(0, 4);
-  const activeTickets = mockTickets.filter(t => t.status === 'OPEN' || t.status === 'IN_PROGRESS');
+  const recentAssets = assets.slice(0, 5);
+  const recentHistory = history.slice(0, 4);
+  const activeTickets = tickets.filter(t => t.status === 'OPEN' || t.status === 'IN_PROGRESS');
 
   return (
     <div className="space-y-8">
@@ -26,21 +66,28 @@ export default function DashboardPage() {
         </p>
       </div>
 
-      {/* Stats — role-aware */}
-      {isManager ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-          <StatCard title="Total Assets" value={dashboardStats.totalAssets} icon={Package} variant="primary" />
-          <StatCard title="Assigned" value={dashboardStats.assigned} icon={Users} variant="accent" />
-          <StatCard title="Available" value={dashboardStats.available} icon={CheckCircle} variant="default" />
-          <StatCard title="Under Maintenance" value={dashboardStats.underMaintenance} icon={Wrench} variant="warning" />
-          <StatCard title="Open Tickets" value={dashboardStats.openTickets} icon={AlertTriangle} variant="warning" />
-        </div>
+      {/* loading / error */}
+      {loading ? (
+        <div className="text-sm text-muted-foreground">Loading dashboard...</div>
+      ) : error ? (
+        <div className="text-sm text-destructive">{error}</div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <StatCard title="My Assets" value={myAssets.length} icon={Package} variant="primary" />
-          <StatCard title="Open Tickets" value={myOpenTickets.length} icon={Wrench} variant="warning" />
-          <StatCard title="Total Tickets" value={myTickets.length} icon={Archive} variant="default" />
-        </div>
+        /* Stats — role-aware */
+        (isManager ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+            <StatCard title="Total Assets" value={stats?.totalAssets ?? '—'} icon={Package} variant="primary" />
+            <StatCard title="Assigned" value={stats?.assigned ?? '—'} icon={Users} variant="accent" />
+            <StatCard title="Available" value={stats?.available ?? '—'} icon={CheckCircle} variant="default" />
+            <StatCard title="Under Maintenance" value={stats?.underMaintenance ?? stats?.maintenance ?? '—'} icon={Wrench} variant="warning" />
+            <StatCard title="Open Tickets" value={stats?.openTickets ?? '—'} icon={AlertTriangle} variant="warning" />
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <StatCard title="My Assets" value={myAssets.length} icon={Package} variant="primary" />
+            <StatCard title="Open Tickets" value={myOpenTickets.length} icon={Wrench} variant="warning" />
+            <StatCard title="Total Tickets" value={myTickets.length} icon={Archive} variant="default" />
+          </div>
+        ))
       )}
 
       {/* Employee: My Assets */}

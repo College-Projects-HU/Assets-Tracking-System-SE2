@@ -2,7 +2,7 @@ import axios from 'axios';
 import { useAuthStore } from '@/store/authStore';
 
 // Points to Spring Cloud Gateway
-const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080/api';
+const API_BASE = import.meta.env.VITE_API_BASE_URL || '/api';
 
 const api = axios.create({
   baseURL: API_BASE,
@@ -14,8 +14,9 @@ const api = axios.create({
 api.interceptors.request.use(
   (config) => {
     const user = useAuthStore.getState().user;
-    if (user?.token) {
-      config.headers.Authorization = `Bearer ${user.token}`;
+    const token = user?.accessToken || user?.token;
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
     }
     return config;
   },

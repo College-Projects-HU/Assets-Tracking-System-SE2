@@ -1,10 +1,12 @@
 import { Link, useLocation } from 'react-router-dom';
 import { 
-  LayoutDashboard, Package, History, UserPlus, Users, LogOut, Settings, ChevronLeft, ChevronRight, Wrench, BarChart3
+  LayoutDashboard, Package, History, UserPlus, Users, LogOut, Settings, ChevronLeft, ChevronRight, Wrench, BarChart3, Bell
 } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
 import { useState } from 'react';
 import { cn } from '@/lib/utils';
+import useNotifications from '@/hooks/useNotifications';
+import { Badge } from '@/components/ui/badge';
 
 const navItems = [
   { path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, roles: ['ADMIN', 'ASSET_MANAGER', 'EMPLOYEE'] },
@@ -21,6 +23,8 @@ export default function AppSidebar() {
   const location = useLocation();
   const { user, logout } = useAuth();
   const [collapsed, setCollapsed] = useState(false);
+  const { notifications, unreadCount, markRead, markAllRead } = useNotifications(10000);
+  const [showNotifications, setShowNotifications] = useState(false);
 
   const filteredNav = navItems.filter(item => user && item.roles.includes(user.role));
 
@@ -56,6 +60,32 @@ export default function AppSidebar() {
           );
         })}
       </nav>
+
+      <div className="px-3 py-2">
+        <div className="flex items-center justify-between mb-2">
+          <button onClick={() => setShowNotifications(!showNotifications)} className="relative p-2 rounded-lg hover:bg-sidebar-hover text-sidebar-fg">
+            <Bell className="w-5 h-5" />
+            {unreadCount > 0 && <span className="absolute -top-1 -right-1"><Badge>{unreadCount}</Badge></span>}
+          </button>
+          <button onClick={() => { markAllRead(); }} title="Mark all read" className="text-xs text-sidebar-fg/60 hover:underline">Mark all</button>
+        </div>
+        {showNotifications && (
+          <div className="bg-card rounded-lg border p-2 max-h-40 overflow-auto">
+            {notifications.length === 0 ? (
+              <div className="text-sm text-muted-foreground p-2">No notifications</div>
+            ) : notifications.map(n => (
+              <div key={n.id} className={cn('p-2 rounded-md mb-1', n.read ? 'opacity-60' : 'bg-muted') }>
+                <div className="flex items-center justify-between">
+                  <div className="text-sm font-medium">{n.title}</div>
+                  <button onClick={() => markRead(n.id)} className="text-xs text-sidebar-fg/70">Mark</button>
+                </div>
+                {n.body && <div className="text-xs text-muted-foreground">{n.body}</div>}
+                <div className="text-xs text-sidebar-fg/60 mt-1">{new Date(n.createdAt).toLocaleString()}</div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
 
       <div className="border-t border-sidebar-border p-3 space-y-2">
         {!collapsed && user && (

@@ -1,6 +1,7 @@
-import { useState } from 'react';
-import { mockAssets, Asset, AssetStatus, AssetCategory } from '@/lib/mock-data';
+import { useState, useEffect } from 'react';
+import { Asset, AssetStatus, AssetCategory } from '@/lib/mock-data';
 import { useAuth, canManageAssets } from '@/lib/auth';
+import assetService from '@/services/assetService';
 import StatusBadge from '@/components/StatusBadge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -15,8 +16,19 @@ const defaultForm = { name: '', assetTag: '', category: 'HARDWARE' as AssetCateg
 export default function AssetsPage() {
   const { user } = useAuth();
   const isManager = user ? canManageAssets(user.role) : false;
-  const [assets, setAssets] = useState<Asset[]>(mockAssets);
+  const [assets, setAssets] = useState<Asset[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
   const [search, setSearch] = useState('');
+
+  useEffect(() => {
+    setLoading(true);
+    assetService.getAll()
+      .then(res => { setAssets(res.data || []); setError(null); })
+      .catch(err => { console.error('Failed to load assets', err); setError('Failed to load assets'); })
+      .finally(() => setLoading(false));
+  }, []);
   const [filterStatus, setFilterStatus] = useState('ALL');
   const [filterCategory, setFilterCategory] = useState('ALL');
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -47,15 +59,31 @@ export default function AssetsPage() {
 
   const handleSave = () => {
     const tag = form.assetTag || `HW-${String(assets.length + 1).padStart(3, '0')}`;
+    setSaving(true);
     if (editingAsset) {
-      setAssets(assets.map(a => a.id === editingAsset.id ? { ...a, ...form, assetTag: tag } : a));
+      assetService.update(editingAsset.id, form)
+        .then(res => {
+          setAssets(assets.map(a => a.id === editingAsset.id ? res.data : a));
+          setDialogOpen(false);
+        })
+        .catch(err => { console.error('Update failed', err); setError('Failed to update asset'); })
+        .finally(() => setSaving(false));
     } else {
-      setAssets([...assets, { id: Date.now(), ...form, assetTag: tag, addDate: new Date().toISOString().split('T')[0] }]);
+      assetService.create({ ...form, assetTag: tag })
+        .then(res => {
+          setAssets([...assets, res.data]);
+          setDialogOpen(false);
+        })
+        .catch(err => { console.error('Create failed', err); setError('Failed to create asset'); })
+        .finally(() => setSaving(false));
     }
-    setDialogOpen(false);
   };
 
-  const handleDelete = (id: number) => setAssets(assets.filter(a => a.id !== id));
+  const handleDelete = (id: number) => {
+    assetService.delete(id)
+      .then(() => setAssets(assets.filter(a => a.id !== id)))
+      .catch(err => { console.error('Delete failed', err); setError('Failed to delete asset'); });
+  };
 
   const exportCSV = () => {
     const headers = ['Asset Tag', 'Name', 'Category', 'Type', 'Brand', 'Serial', 'Status', 'Assigned To', 'Purchase Date', 'Cost', 'Warranty'];
@@ -75,6 +103,9 @@ export default function AssetsPage() {
           <h1 className="text-2xl font-display font-bold">Asset Inventory</h1>
           <p className="text-muted-foreground text-sm mt-1">{isManager ? "Manage your organization's IT assets" : 'View your assigned assets'}</p>
         </div>
+        {error && <div className="text-sm text-destructive">{error}</div>}
+        {loading && <div className="text-sm text-muted-foreground">Loading assets...</div>}
+        {!loading && !error && (
         <div className="flex gap-2">
           {isManager && <Button variant="outline" onClick={exportCSV}><Download className="w-4 h-4 mr-2" />Export CSV</Button>}
           {isManager && (
@@ -162,6 +193,7 @@ export default function AssetsPage() {
             </Dialog>
           )}
         </div>
+        )}
       </div>
 
       {/* Filters */}

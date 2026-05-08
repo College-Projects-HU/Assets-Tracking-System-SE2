@@ -1,5 +1,7 @@
-import { useState } from 'react';
-import { mockAssets, mockStaff } from '@/lib/mock-data';
+import { useState, useEffect } from 'react';
+import assetService from '@/services/assetService';
+import userService from '@/services/userService';
+import assignmentService from '@/services/assignmentService';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
@@ -13,15 +15,62 @@ export default function AssignmentsPage() {
   const [selectedAsset, setSelectedAsset] = useState('');
   const [selectedStaff, setSelectedStaff] = useState('');
 
-  const assignedAssets = mockAssets.filter(a => a.status === 'ASSIGNED');
-  const availableAssets = mockAssets.filter(a => a.status === 'AVAILABLE');
-  const employees = mockStaff.filter(s => s.role === 'EMPLOYEE');
+  const [assets, setAssets] = useState<any[]>([]);
+  const [staff, setStaff] = useState<any[]>([]);
+  const [assignments, setAssignments] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const loadData = () => {
+    setLoading(true);
+    Promise.all([assignmentService.getAll(), assetService.getAll(), userService.getAll()])
+      .then(([assignmentRes, assetRes, staffRes]) => {
+        setAssignments(assignmentRes.data || []);
+        setAssets(assetRes.data || []);
+        setStaff(staffRes.data || []);
+        setError(null);
+      })
+      .catch(err => { console.error('Load failed', err); setError('Failed to load data'); })
+      .finally(() => setLoading(false));
+  };
+
+  useEffect(() => {
+    loadData();
+  }, []);
+
+  const availableAssets = assets.filter(a => a.status === 'AVAILABLE');
+  const employees = staff.filter(s => s.role === 'EMPLOYEE');
 
   const handleAssign = () => {
-    setDialogOpen(false);
-    setSelectedAsset('');
-    setSelectedStaff('');
+    const asset = assets.find(a => String(a.id) === selectedAsset);
+    const user = staff.find(s => String(s.id) === selectedStaff);
+    if (!asset || !user) return;
+
+    assignmentService.create({
+      assetId: asset.id,
+      userId: user.id,
+      userName: user.name,
+    }).then(() => {
+      setDialogOpen(false);
+      setSelectedAsset('');
+      setSelectedStaff('');
+      loadData();
+    }).catch(err => {
+      console.error('Assignment failed', err);
+      setError('Failed to create assignment');
+    });
   };
+
+  const handleReturn = (id: number) => {
+    assignmentService.returnAsset(id)
+      .then(() => loadData())
+      .catch(err => {
+        console.error('Return failed', err);
+        setError('Failed to return asset');
+      });
+  };
+
+  const rows = assignments.filter(a => a.status !== 'RETURNED');
 
   return (
     <div className="space-y-6">
@@ -73,9 +122,7 @@ export default function AssignmentsPage() {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Asset Tag</TableHead>
               <TableHead>Asset</TableHead>
-              <TableHead>Type</TableHead>
               <TableHead>Assigned To</TableHead>
               <TableHead>Status</TableHead>
               <TableHead>Date</TableHead>
@@ -83,23 +130,23 @@ export default function AssignmentsPage() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {assignedAssets.map(asset => (
-              <TableRow key={asset.id}>
-                <TableCell className="font-mono text-xs">{asset.assetTag}</TableCell>
-                <TableCell className="font-medium">{asset.name}</TableCell>
-                <TableCell className="text-muted-foreground">{asset.type}</TableCell>
-                <TableCell>{asset.assignedTo}</TableCell>
-                <TableCell><StatusBadge status={asset.status} /></TableCell>
-                <TableCell className="text-muted-foreground">{asset.addDate}</TableCell>
+            {rows.map(assignment => {
+              return (
+              <TableRow key={assignment.id}>
+                <TableCell className="font-medium">{assignment.assetName}</TableCell>
+                <TableCell>{assignment.userName}</TableCell>
+                <TableCell><StatusBadge status={assignment.status} /></TableCell>
+                <TableCell className="text-muted-foreground">{assignment.assignedDate || '—'}</TableCell>
                 <TableCell className="text-right">
-                  <Button variant="ghost" size="sm" className="text-destructive">
+                  <Button variant="ghost" size="sm" className="text-destructive" onClick={() => handleReturn(assignment.id)}>
                     <UserMinus className="w-4 h-4 mr-1" />Revoke
                   </Button>
                 </TableCell>
               </TableRow>
-            ))}
-            {assignedAssets.length === 0 && (
-              <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">No active assignments</TableCell></TableRow>
+              );
+            })}
+            {rows.length === 0 && (
+              <TableRow><TableCell colSpan={5} className="text-center py-8 text-muted-foreground">No active assignments</TableCell></TableRow>
             )}
           </TableBody>
         </Table>
