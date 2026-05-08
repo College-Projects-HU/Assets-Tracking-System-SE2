@@ -29,7 +29,7 @@ JWT_SECRET=your_super_secret_key_that_should_be_at_least_256_bits_long_for_HS256
 Make sure you have PostgreSQL running on `localhost:5432` with:
 - Username: `postgres`
 - Password: `postgres` (or whatever you set in `.env`)
-- Database: `assets_auth_db`, `assets_user_db`, `assets_asset_db`, `assets_report_db`, `assets_maintenance_db`
+- Database: `assets_auth_db`, `assets_asset_db`, `assets_report_db`, `assets_maintenance_db`, `assets_notification_db`
 
 **Option A:** Use Docker to run PostgreSQL
 ```bash
@@ -47,10 +47,10 @@ docker run -d --name asset-tracking-db \
 Connect to PostgreSQL and run:
 ```sql
 CREATE DATABASE assets_auth_db;
-CREATE DATABASE assets_user_db;
 CREATE DATABASE assets_asset_db;
 CREATE DATABASE assets_report_db;
 CREATE DATABASE assets_maintenance_db;
+CREATE DATABASE assets_notification_db;
 ```
 
 Or use the provided `init-db.sql`:
@@ -128,4 +128,3 @@ mvn test
 **Can't find database**
 - Verify all required databases are created
 - Check PostgreSQL is listening on `localhost:5432`
-

@@ -166,9 +166,6 @@ services:
     environment:
       SERVER_PORT: 8083
       SPRING_CONFIG_SERVER_URI: http://config-server:8888
-      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/assets_user_db
-      SPRING_DATASOURCE_USERNAME: ${DB_USER}
-      SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD}
       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka/
       AUTH_SERVICE_URL: http://auth-service:8081
     depends_on:

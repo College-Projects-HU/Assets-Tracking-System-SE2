@@ -8,6 +8,7 @@ This repo is only partially complete against the sprint PDFs in `/home/abdunader
 
 - Implemented: auth, asset management, assignments, reporting, notifications, gateway/config/discovery, and frontend UI screens.
 - Incomplete: `user-service`, `maintenance-service`, and most frontend pages are still wired to local mock data.
+ - Incomplete: most frontend pages are still wired to local mock data.
 
 See [PROJECT_STATUS.md](./PROJECT_STATUS.md) for the detailed audit.
 
@@ -59,8 +60,7 @@ To run services manually, start these first:
 7. `api-gateway`
 
 Current backend gaps:
-- `user-service` is a skeleton only.
-- `maintenance-service` is a skeleton only.
+- backend modules still need broader integration polish and full end-to-end verification.
 
 ## Docker
 
