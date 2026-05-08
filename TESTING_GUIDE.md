@@ -54,11 +54,13 @@ If you are actively developing and want to run it via IntelliJ, VS Code, or Mave
 Here is the step-by-step guide to testing each core piece of the system.
 
 ### 1. Authentication & Registration (Auth Service)
+
 - **Test:** Go to the Frontend Login page and click **Sign Up** (or use Postman `POST http://localhost:8080/api/auth/register`).
 - **Data:** Register with an email (e.g., `admin@test.com`), password, and Role (`ROLE_ADMIN` or `ROLE_EMPLOYEE`).
 - **Verify:** The frontend should successfully log you in and redirect you to the Dashboard. Your JWT is stored securely and all subsequent requests are attached with this token.
 
 ### 2. User Profile Management (User Service)
+
 - **Test:** Navigate to your **Profile** page on the Frontend.
 - **Action:** Update your full name.
 - **Backend Flow:** This hits `PUT /api/users/profile` on the API Gateway -> Routes to User Service -> Checks your JWT -> Uses internal Feign client to update the actual database in Auth Service.
@@ -66,6 +68,7 @@ Here is the step-by-step guide to testing each core piece of the system.
 - **Admin Test:** Log in as `ROLE_ADMIN` and navigate to the "Manage Users" page. You should be able to see all registered users and toggle their roles or disable their accounts.
 
 ### 3. Asset Lifecycle (Asset Service)
+
 - **Test:** Log in as `ROLE_ADMIN` or `ROLE_ASSET_MANAGER`.
 - **Action:** Create a new Asset (e.g., "Dell XPS 15 Laptop", Category: "Electronics").
 - **Verify:** Asset is saved with status `AVAILABLE`.
@@ -73,6 +76,7 @@ Here is the step-by-step guide to testing each core piece of the system.
 - **Verify:** The Asset status automatically transitions to `ASSIGNED`.
 
 ### 4. Maintenance Ticketing (Maintenance Service)
+
 - **Test:** Log in as an `EMPLOYEE` who owns the asset.
 - **Action:** Create a Maintenance Ticket for the asset (e.g., "Screen is flickering").
 - **Backend Flow:** The Maintenance Service accepts the ticket -> Uses Feign Client to talk to Asset Service -> Automatically marks the linked Asset as `UNDER_MAINTENANCE`.
@@ -80,12 +84,14 @@ Here is the step-by-step guide to testing each core piece of the system.
 - **Resolution:** Log in as Admin/Manager, mark the maintenance ticket as `RESOLVED`. The system will automatically bounce the linked Asset back to `AVAILABLE`.
 
 ### 5. API Gateway & Security Verification
+
 - **CORS Testing:** The API Gateway is configured strictly to allow connections from `http://localhost:3000`. You can test this by trying to `fetch` the API from a different domain (like `http://google.com` console), it will be blocked.
 - **Rate Limiting:** Try spamming the Login button 6 times in a row with the wrong password. The 6th attempt should block you with `HTTP 429 Too Many Requests`.
 
 ---
 
 ### Troubleshooting
+
 - **Cannot connect to backend?** Check if you have multiple things running on Port 8080. If so, kill any background Java processes or conflicting containers.
 - **Services failing to register?** Ensure Eureka (8761) is fully booted and says "Started EurekaServerApplication" before starting the others.
-- **Database login fails?** Ensure the `DB_PASSWORD` in your `.env` or system matches `ZikaBika123` which we set in the config server.
+- **Database login fails?** Ensure the `DB_PASSWORD` in your `.env` or system matches `postgres` which we set in the config server.
