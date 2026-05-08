@@ -1,16 +1,16 @@
 package com.assets.apigateway.config;
 
 import com.assets.apigateway.exception.GlobalErrorWebExceptionHandler;
-import lombok.RequiredArgsConstructor;
 import org.springframework.boot.autoconfigure.web.ErrorProperties;
 import org.springframework.boot.autoconfigure.web.WebProperties;
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.boot.web.reactive.error.ErrorAttributes;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 @Configuration
-@RequiredArgsConstructor
+@EnableConfigurationProperties({WebProperties.class, ErrorProperties.class})
 public class ErrorHandlerConfig {
 
     @Bean

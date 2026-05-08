@@ -4,7 +4,7 @@ import org.springframework.cloud.openfeign.FeignClient;
 import org.springframework.web.bind.annotation.GetMapping;
 import java.util.List;
 
-@FeignClient(name = "asset-service", url = "${feign.asset-service.url:http://localhost:8082}")
+@FeignClient(name = "assignment-service", url = "${feign.assignment-service.url:http://localhost:8082}")
 public interface AssignmentServiceClient {
 
     @GetMapping("/api/internal/assignments/active")
