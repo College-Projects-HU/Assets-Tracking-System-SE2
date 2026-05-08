@@ -5,12 +5,10 @@ import com.assets.assetservice.entity.AssetAssignment;
 import com.assets.assetservice.repository.AssetAssignmentRepository;
 import com.assets.assetservice.repository.AssetRepository;
 import lombok.RequiredArgsConstructor;
-import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.time.format.DateTimeFormatter;
 import java.util.List;
 
 @RestController
@@ -21,7 +19,6 @@ public class InternalReportingController {
     private final AssetAssignmentRepository assignmentRepository;
 
     @GetMapping("/assets")
-    @PreAuthorize("isAuthenticated()")
     public List<InternalAssetDto> assets() {
         return assetRepository.findAll().stream()
                 .map(this::toAssetDto)
@@ -29,7 +26,6 @@ public class InternalReportingController {
     }
 
     @GetMapping("/assignments/active")
-    @PreAuthorize("isAuthenticated()")
     public List<InternalAssignmentDto> activeAssignments() {
         return assignmentRepository.findAll().stream()
                 .filter(assignment -> assignment.getReturnedAt() == null)
@@ -49,7 +45,7 @@ public class InternalReportingController {
                 assignedUserId,
                 null,
                 asset.getLocation(),
-                asset.getPurchaseDate() == null ? null : asset.getPurchaseDate().format(DateTimeFormatter.ISO_DATE)
+                null
         );
     }
 
