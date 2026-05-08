@@ -11,7 +11,7 @@ const navItems = [
   { path: '/assets', label: 'Assets', icon: Package, roles: ['ADMIN', 'ASSET_MANAGER', 'EMPLOYEE'] },
   { path: '/assignments', label: 'Assignments', icon: UserPlus, roles: ['ADMIN', 'ASSET_MANAGER'] },
   { path: '/maintenance', label: 'Maintenance', icon: Wrench, roles: ['ADMIN', 'ASSET_MANAGER', 'EMPLOYEE'] },
-  { path: '/history', label: 'Audit Log', icon: History, roles: ['ADMIN', 'ASSET_MANAGER'] },
+  { path: '/history', label: 'Audit Log', icon: History, roles: ['ADMIN'] },
   { path: '/reports', label: 'Reports', icon: BarChart3, roles: ['ADMIN', 'ASSET_MANAGER'] },
   { path: '/staff', label: 'Staff', icon: Users, roles: ['ADMIN'] },
   { path: '/settings', label: 'Settings', icon: Settings, roles: ['ADMIN'] },

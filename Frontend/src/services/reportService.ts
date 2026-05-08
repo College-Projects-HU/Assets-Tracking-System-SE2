@@ -1,26 +1,30 @@
 import api from './api';
-import type { AssetHistoryItem } from '@/lib/mock-data';
-
-export interface DashboardStats {
-  totalAssets: number;
-  assigned: number;
-  available: number;
-  maintenance: number;
-  retired: number;
-}
+import type { AuditLogRecord, DashboardStatsRecord, PageResponse } from '@/types/api';
 
 const reportService = {
-  getAuditLog: () =>
-    api.get<AssetHistoryItem[]>('/reports/audit-log'),
+  getAuditLog: (params?: { startDate?: string; endDate?: string; actor?: string; page?: number; size?: number }) =>
+    api.get<PageResponse<AuditLogRecord>>('/reports/audit-log', { params }),
 
   getDashboardStats: () =>
-    api.get<DashboardStats>('/reports/dashboard'),
+    api.get<DashboardStatsRecord>('/reports/dashboard-stats'),
 
-  getAssetReport: (format: 'json' | 'csv' = 'json') =>
-    api.get(`/reports/assets`, { params: { format } }),
+  getFullInventory: (params?: { startDate?: string; endDate?: string; category?: string; status?: string }) =>
+    api.get<Record<string, unknown>[]>('/reports/full-inventory', { params }),
 
-  getAssignmentReport: () =>
-    api.get('/reports/assignments'),
+  exportFullInventory: (params?: { startDate?: string; endDate?: string; category?: string; status?: string }) =>
+    api.get('/reports/full-inventory/export', { params, responseType: 'blob' }),
+
+  getMaintenanceSummary: (params?: { startDate?: string; endDate?: string }) =>
+    api.get<Record<string, unknown>[]>('/reports/maintenance-summary', { params }),
+
+  exportMaintenanceSummary: (params?: { startDate?: string; endDate?: string }) =>
+    api.get('/reports/maintenance-summary/export', { params, responseType: 'blob' }),
+
+  getWarrantyExpiry: (days = 30) =>
+    api.get<Record<string, unknown>[]>('/reports/warranty-expiry', { params: { days } }),
+
+  exportWarrantyExpiry: (days = 30) =>
+    api.get('/reports/warranty-expiry/export', { params: { days }, responseType: 'blob' }),
 };
 
 export default reportService;

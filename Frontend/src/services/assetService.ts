@@ -1,53 +1,56 @@
 import api from './api';
-import type { Asset } from '@/lib/mock-data';
+import type { AssetCategory, AssetRecord, AssetStatus, PageResponse } from '@/types/api';
 
 export interface CreateAssetRequest {
+  assetTag: string;
   name: string;
-  assetTag?: string;
-  category: 'HARDWARE' | 'SOFTWARE_LICENSE';
-  type: string;
-  brand: string;
-  serialNumber: string;
-  status: Asset['status'];
-  description: string;
-  purchaseDate: string;
+  category: AssetCategory;
+  serialNumber?: string;
+  purchaseDate?: string;
   purchaseCost: number;
-  warrantyExpiry: string;
+  location?: string;
+  notes?: string;
+}
+
+export interface UpdateAssetRequest {
+  name?: string;
+  category?: AssetCategory;
+  serialNumber?: string;
+  purchaseDate?: string;
+  purchaseCost?: number;
+  location?: string;
+  notes?: string;
+}
+
+export interface AssetListParams {
+  q?: string;
+  status?: AssetStatus;
+  category?: AssetCategory;
+  page?: number;
+  size?: number;
 }
 
 const assetService = {
-  getAll: () =>
-    api.get<Asset[]>('/assets'),
+  getAll: (params?: AssetListParams) =>
+    api.get<PageResponse<AssetRecord>>('/assets', { params }),
 
   getById: (id: number) =>
-    api.get<Asset>(`/assets/${id}`),
+    api.get<AssetRecord>(`/assets/${id}`),
 
   create: (data: CreateAssetRequest) =>
-    api.post<Asset>('/assets', data),
+    api.post<AssetRecord>('/assets', data),
 
-  update: (id: number, data: Partial<CreateAssetRequest>) =>
-    api.put<Asset>(`/assets/${id}`, data),
+  update: (id: number, data: UpdateAssetRequest) =>
+    api.put<AssetRecord>(`/assets/${id}`, data),
 
   delete: (id: number) =>
     api.delete(`/assets/${id}`),
 
-  getByStatus: (status: string) =>
-    api.get<Asset[]>(`/assets/status/${status}`),
-
-  getByCategory: (category: string) =>
-    api.get<Asset[]>(`/assets/category/${category}`),
-
-  assign: (assetId: number, userId: number) =>
-    api.post(`/assets/${assetId}/assign/${userId}`),
-
-  unassign: (assetId: number) =>
-    api.post(`/assets/${assetId}/unassign`),
-
-  retire: (assetId: number, reason: string) =>
-    api.post(`/assets/${assetId}/retire`, { reason }),
+  changeStatus: (id: number, status: AssetStatus, reason?: string) =>
+    api.post<AssetRecord>(`/assets/${id}/status`, { status, reason }),
 
   exportCSV: () =>
-    api.get('/assets/export', { responseType: 'blob' }),
+    api.get('/reports/full-inventory/export', { responseType: 'blob' }),
 };
 
 export default assetService;

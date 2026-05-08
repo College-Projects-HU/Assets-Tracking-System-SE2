@@ -1,26 +1,32 @@
 import api from './api';
-import type { StaffMember } from '@/lib/mock-data';
+import type { UserRecord, UserRole } from '@/types/api';
 
 export interface UpdateProfileRequest {
-  name: string;
-  department?: string;
+  fullName: string;
+}
+
+export interface UpdateRoleRequest {
+  role: UserRole;
 }
 
 const userService = {
-  getAll: () =>
-    api.get<StaffMember[]>('/users'),
+  getProfile: () =>
+    api.get<UserRecord>('/users/profile'),
+
+  getAll: (params?: { role?: UserRole; active?: boolean; q?: string }) =>
+    api.get<UserRecord[]>('/users', { params }),
 
   getById: (id: number) =>
-    api.get<StaffMember>(`/users/${id}`),
+    api.get<UserRecord>(`/users/${id}`),
 
-  updateProfile: (id: number, data: UpdateProfileRequest) =>
-    api.put<StaffMember>(`/users/${id}`, data),
+  updateProfile: (data: UpdateProfileRequest) =>
+    api.put<UserRecord>('/users/profile', data),
 
-  delete: (id: number) =>
+  updateRole: (id: number, data: UpdateRoleRequest) =>
+    api.put<UserRecord>(`/users/${id}/role`, data),
+
+  deactivate: (id: number) =>
     api.delete(`/users/${id}`),
-
-  getByDepartment: (department: string) =>
-    api.get<StaffMember[]>(`/users/department/${department}`),
 };
 
 export default userService;

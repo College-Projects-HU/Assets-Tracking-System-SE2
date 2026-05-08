@@ -1,47 +1,74 @@
 import { useState } from 'react';
 import { useNavigate, Navigate } from 'react-router-dom';
+import { Package, Eye, EyeOff } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
+import authService from '@/services/authService';
+import userService from '@/services/userService';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Package, Eye, EyeOff } from 'lucide-react';
-import type { UserRole } from '@/store/authStore';
+import type { UserRole } from '@/types/api';
 
 export default function LoginPage() {
   const navigate = useNavigate();
   const { login, isAuthenticated } = useAuth();
   const [isRegister, setIsRegister] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
-  const [form, setForm] = useState<{ name: string; email: string; password: string; role: UserRole }>({ name: '', email: '', password: '', role: 'EMPLOYEE' });
+  const [submitting, setSubmitting] = useState(false);
+  const [form, setForm] = useState<{ fullName: string; email: string; password: string; role: UserRole }>({
+    fullName: '',
+    email: '',
+    password: '',
+    role: 'EMPLOYEE',
+  });
   const [error, setError] = useState('');
 
   if (isAuthenticated) return <Navigate to="/dashboard" replace />;
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const hydrateAndLogin = async (tokens: { accessToken: string; refreshToken: string }) => {
+    const profile = await userService.getProfile();
+    login({
+      id: profile.data.id,
+      name: profile.data.fullName,
+      email: profile.data.email,
+      role: profile.data.role,
+      token: tokens.accessToken,
+      refreshToken: tokens.refreshToken,
+    });
+    navigate('/dashboard');
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
 
-    if (!form.email || !form.password) {
-      setError('Please fill in all fields');
+    if (!form.email || !form.password || (isRegister && !form.fullName)) {
+      setError('Please fill in all required fields.');
       return;
     }
 
-    if (!isRegister && form.email === 'admin@ats.com' && form.password === 'admin') {
-      login({ id: 4, name: 'Fatima Nour', email: form.email, role: 'ADMIN', token: 'demo-token-admin' });
-      navigate('/dashboard');
-    } else if (!isRegister && form.email === 'manager@ats.com' && form.password === 'manager') {
-      login({ id: 5, name: 'Youssef Mahmoud', email: form.email, role: 'ASSET_MANAGER', token: 'demo-token-mgr' });
-      navigate('/dashboard');
-    } else if (!isRegister && form.email === 'employee@ats.com' && form.password === 'employee') {
-      login({ id: 1, name: 'Ahmed Hassan', email: form.email, role: 'EMPLOYEE', token: 'demo-token-emp' });
-      navigate('/dashboard');
-    } else if (isRegister && form.name && form.email && form.password) {
-      login({ id: 99, name: form.name, email: form.email, role: form.role, token: 'demo-token-new' });
-      navigate('/dashboard');
-    } else if (!isRegister) {
-      setError('Invalid credentials. See demo accounts below.');
-    } else {
-      setError('Please fill in all fields');
+    setSubmitting(true);
+
+    try {
+      if (isRegister) {
+        const response = await authService.register({
+          fullName: form.fullName,
+          email: form.email,
+          password: form.password,
+          role: form.role,
+        });
+        await hydrateAndLogin(response.data);
+      } else {
+        const response = await authService.login({
+          email: form.email,
+          password: form.password,
+        });
+        await hydrateAndLogin(response.data);
+      }
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'Authentication failed. Check the backend services and your credentials.');
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -58,7 +85,7 @@ export default function LoginPage() {
           </div>
           <h1 className="text-4xl font-display font-bold text-primary-foreground mb-4">IT Asset Management System</h1>
           <p className="text-primary-foreground/80 text-lg max-w-md">
-            Track assets, manage maintenance requests, and generate reports with role-based access control.
+            Track assets, handle assignments, manage maintenance, and review reports from the live backend.
           </p>
         </div>
       </div>
@@ -74,7 +101,7 @@ export default function LoginPage() {
 
           <h2 className="text-2xl font-display font-bold mb-1">{isRegister ? 'Create Account' : 'Welcome Back'}</h2>
           <p className="text-muted-foreground mb-8">
-            {isRegister ? 'Register to start managing assets' : 'Sign in to your account'}
+            {isRegister ? 'Register against the auth service' : 'Sign in with a backend user account'}
           </p>
 
           {error && (
@@ -86,8 +113,8 @@ export default function LoginPage() {
           <form onSubmit={handleSubmit} className="space-y-4">
             {isRegister && (
               <div className="space-y-2">
-                <Label htmlFor="name">Full Name</Label>
-                <Input id="name" placeholder="Enter your name" value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} />
+                <Label htmlFor="fullName">Full Name</Label>
+                <Input id="fullName" placeholder="Enter your name" value={form.fullName} onChange={e => setForm({ ...form, fullName: e.target.value })} />
               </div>
             )}
             <div className="space-y-2">
@@ -128,24 +155,28 @@ export default function LoginPage() {
                 </div>
               </div>
             )}
-            <Button type="submit" className="w-full" size="lg">
-              {isRegister ? 'Create Account' : 'Sign In'}
+            <Button type="submit" className="w-full" size="lg" disabled={submitting}>
+              {submitting ? 'Please wait...' : isRegister ? 'Create Account' : 'Sign In'}
             </Button>
           </form>
 
           <p className="text-center text-sm text-muted-foreground mt-6">
             {isRegister ? 'Already have an account?' : "Don't have an account?"}{' '}
-            <button onClick={() => { setIsRegister(!isRegister); setError(''); }} className="text-primary font-medium hover:underline">
+            <button
+              onClick={() => {
+                setIsRegister(!isRegister);
+                setError('');
+              }}
+              className="text-primary font-medium hover:underline"
+            >
               {isRegister ? 'Sign In' : 'Register'}
             </button>
           </p>
 
           {!isRegister && (
             <div className="mt-6 p-4 bg-muted rounded-lg">
-              <p className="text-xs font-medium text-muted-foreground mb-2">Demo Credentials:</p>
-              <p className="text-xs text-muted-foreground">Admin: admin@ats.com / admin</p>
-              <p className="text-xs text-muted-foreground">Asset Manager: manager@ats.com / manager</p>
-              <p className="text-xs text-muted-foreground">Employee: employee@ats.com / employee</p>
+              <p className="text-xs font-medium text-muted-foreground mb-2">Seeded Admin Account</p>
+              <p className="text-xs text-muted-foreground">admin@assets.com / Admin@123</p>
             </div>
           )}
         </div>

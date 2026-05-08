@@ -1,6 +1,10 @@
-import { useState } from 'react';
-import { mockTickets, mockAssets, MaintenanceTicket, TicketPriority, TicketStatus } from '@/lib/mock-data';
+import { useEffect, useMemo, useState } from 'react';
+import { Eye, MessageSquare, Plus, Search } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
+import assignmentService from '@/services/assignmentService';
+import assetService from '@/services/assetService';
+import maintenanceService from '@/services/maintenanceService';
+import userService from '@/services/userService';
 import StatusBadge from '@/components/StatusBadge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -9,77 +13,126 @@ import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Plus, Search, Eye, MessageSquare } from 'lucide-react';
+import type { AssetRecord, MaintenanceTicketRecord, TicketPriority, TicketStatus, UserRecord } from '@/types/api';
+
+const formatDate = (value?: string | null) => (value ? new Date(value).toLocaleString() : '—');
 
 export default function MaintenancePage() {
   const { user } = useAuth();
   const isManager = user?.role === 'ADMIN' || user?.role === 'ASSET_MANAGER';
-  const [tickets, setTickets] = useState<MaintenanceTicket[]>(mockTickets);
+  const [tickets, setTickets] = useState<MaintenanceTicketRecord[]>([]);
+  const [assets, setAssets] = useState<AssetRecord[]>([]);
+  const [users, setUsers] = useState<UserRecord[]>([]);
   const [search, setSearch] = useState('');
   const [filterStatus, setFilterStatus] = useState('ALL');
   const [filterPriority, setFilterPriority] = useState('ALL');
   const [createOpen, setCreateOpen] = useState(false);
-  const [detailTicket, setDetailTicket] = useState<MaintenanceTicket | null>(null);
+  const [detailTicket, setDetailTicket] = useState<MaintenanceTicketRecord | null>(null);
   const [noteText, setNoteText] = useState('');
   const [form, setForm] = useState({ assetId: '', issueDescription: '', priority: 'MEDIUM' as TicketPriority });
+  const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState('');
 
-  // Employees see only their tickets
-  const visibleTickets = isManager ? tickets : tickets.filter(t => t.reportedById === user?.id);
+  const loadData = async () => {
+    if (!user) return;
 
-  const filtered = visibleTickets.filter(t => {
-    const matchSearch = t.assetName.toLowerCase().includes(search.toLowerCase()) || t.ticketId.toLowerCase().includes(search.toLowerCase()) || t.issueDescription.toLowerCase().includes(search.toLowerCase());
-    const matchStatus = filterStatus === 'ALL' || t.status === filterStatus;
-    const matchPriority = filterPriority === 'ALL' || t.priority === filterPriority;
-    return matchSearch && matchStatus && matchPriority;
-  });
+    setLoading(true);
+    setError('');
 
-  // Assets assigned to current user (for employees) or all (for managers)
-  const assignableAssets = isManager
-    ? mockAssets.filter(a => a.status !== 'RETIRED' && a.status !== 'LOST_STOLEN')
-    : mockAssets.filter(a => a.assignedToId === user?.id);
-
-  const handleCreate = () => {
-    const asset = mockAssets.find(a => a.id === Number(form.assetId));
-    if (!asset || !user) return;
-    const newTicket: MaintenanceTicket = {
-      id: Date.now(),
-      ticketId: `TKT-${String(tickets.length + 1).padStart(3, '0')}`,
-      assetId: asset.id,
-      assetName: asset.name,
-      assetTag: asset.assetTag,
-      reportedBy: user.name,
-      reportedById: user.id,
-      issueDescription: form.issueDescription,
-      priority: form.priority,
-      status: 'OPEN',
-      notes: [],
-      createdAt: new Date().toISOString().split('T')[0],
-      updatedAt: new Date().toISOString().split('T')[0],
-    };
-    setTickets([newTicket, ...tickets]);
-    setCreateOpen(false);
-    setForm({ assetId: '', issueDescription: '', priority: 'MEDIUM' });
-  };
-
-  const handleStatusChange = (ticket: MaintenanceTicket, newStatus: TicketStatus) => {
-    setTickets(tickets.map(t => t.id === ticket.id ? {
-      ...t,
-      status: newStatus,
-      updatedAt: new Date().toISOString().split('T')[0],
-      ...(newStatus === 'RESOLVED' ? { resolvedAt: new Date().toISOString().split('T')[0] } : {}),
-      ...(newStatus === 'CLOSED' ? { closedAt: new Date().toISOString().split('T')[0] } : {}),
-    } : t));
-    if (detailTicket?.id === ticket.id) {
-      setDetailTicket({ ...ticket, status: newStatus, updatedAt: new Date().toISOString().split('T')[0] });
+    try {
+      if (isManager) {
+        const [ticketsResponse, assetsResponse, usersResponse] = await Promise.all([
+          maintenanceService.getAll(),
+          assetService.getAll({ size: 200 }),
+          userService.getAll({ active: true }),
+        ]);
+        setTickets(ticketsResponse.data);
+        setAssets(assetsResponse.data.content);
+        setUsers(usersResponse.data);
+      } else {
+        const [ticketsResponse, assetsResponse, assignmentsResponse] = await Promise.all([
+          maintenanceService.getMyTickets(),
+          assetService.getAll({ size: 200 }),
+          assignmentService.getActiveForUser(user.id),
+        ]);
+        const assignedIds = new Set(assignmentsResponse.data.map(item => item.assetId));
+        setTickets(ticketsResponse.data);
+        setAssets(assetsResponse.data.content.filter(asset => assignedIds.has(asset.id)));
+        setUsers([{ id: user.id, fullName: user.name, email: user.email, role: user.role, active: true }]);
+      }
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'Failed to load maintenance data.');
+    } finally {
+      setLoading(false);
     }
   };
 
-  const handleAddNote = () => {
+  useEffect(() => {
+    void loadData();
+  }, [isManager, user?.id]);
+
+  const assetMap = useMemo(() => new Map(assets.map(asset => [asset.id, asset])), [assets]);
+  const userMap = useMemo(() => new Map(users.map(member => [member.id, member])), [users]);
+
+  const filtered = tickets.filter(ticket => {
+    const asset = assetMap.get(ticket.assetId);
+    const matchSearch =
+      ticket.ticketCode.toLowerCase().includes(search.toLowerCase()) ||
+      ticket.issueDescription.toLowerCase().includes(search.toLowerCase()) ||
+      (asset?.name || '').toLowerCase().includes(search.toLowerCase()) ||
+      (asset?.assetTag || '').toLowerCase().includes(search.toLowerCase());
+    const matchStatus = filterStatus === 'ALL' || ticket.status === filterStatus;
+    const matchPriority = filterPriority === 'ALL' || ticket.priority === filterPriority;
+    return matchSearch && matchStatus && matchPriority;
+  });
+
+  const assignableAssets = assets.filter(asset => asset.status !== 'RETIRED' && asset.status !== 'LOST_STOLEN');
+
+  const handleCreate = async () => {
+    setSubmitting(true);
+    setError('');
+
+    try {
+      await maintenanceService.create({
+        assetId: Number(form.assetId),
+        issueDescription: form.issueDescription,
+        priority: form.priority,
+      });
+      setCreateOpen(false);
+      setForm({ assetId: '', issueDescription: '', priority: 'MEDIUM' });
+      await loadData();
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'Failed to create maintenance ticket.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleStatusChange = async (ticket: MaintenanceTicketRecord, newStatus: TicketStatus) => {
+    try {
+      await maintenanceService.update(ticket.id, { status: newStatus });
+      await loadData();
+      if (detailTicket?.id === ticket.id) {
+        setDetailTicket(current => (current ? { ...current, status: newStatus } : current));
+      }
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'Failed to update ticket status.');
+    }
+  };
+
+  const handleAddNote = async () => {
     if (!detailTicket || !noteText.trim()) return;
-    const updated = { ...detailTicket, notes: [...detailTicket.notes, noteText.trim()], updatedAt: new Date().toISOString().split('T')[0] };
-    setTickets(tickets.map(t => t.id === updated.id ? updated : t));
-    setDetailTicket(updated);
-    setNoteText('');
+
+    try {
+      await maintenanceService.addNote(detailTicket.id, noteText.trim());
+      setNoteText('');
+      await loadData();
+      const refreshed = await maintenanceService.getById(detailTicket.id);
+      setDetailTicket(refreshed.data);
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'Failed to add ticket note.');
+    }
   };
 
   const nextStatus: Record<TicketStatus, TicketStatus | null> = {
@@ -112,8 +165,8 @@ export default function MaintenancePage() {
                 <Select value={form.assetId} onValueChange={v => setForm({ ...form, assetId: v })}>
                   <SelectTrigger><SelectValue placeholder="Select asset" /></SelectTrigger>
                   <SelectContent>
-                    {assignableAssets.map(a => (
-                      <SelectItem key={a.id} value={String(a.id)}>{a.name} ({a.assetTag})</SelectItem>
+                    {assignableAssets.map(asset => (
+                      <SelectItem key={asset.id} value={String(asset.id)}>{asset.name} ({asset.assetTag})</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
@@ -134,15 +187,16 @@ export default function MaintenancePage() {
                   </SelectContent>
                 </Select>
               </div>
-              <Button onClick={handleCreate} className="w-full" disabled={!form.assetId || !form.issueDescription}>
-                Submit Ticket
+              <Button onClick={() => void handleCreate()} className="w-full" disabled={!form.assetId || !form.issueDescription || submitting}>
+                {submitting ? 'Submitting...' : 'Submit Ticket'}
               </Button>
             </div>
           </DialogContent>
         </Dialog>
       </div>
 
-      {/* Filters */}
+      {error && <div className="rounded-lg border border-destructive/20 bg-destructive/10 p-3 text-sm text-destructive">{error}</div>}
+
       <div className="flex flex-col sm:flex-row gap-3">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
@@ -170,7 +224,6 @@ export default function MaintenancePage() {
         </Select>
       </div>
 
-      {/* Table */}
       <div className="bg-card rounded-xl border shadow-card overflow-hidden">
         <Table>
           <TableHeader>
@@ -186,58 +239,64 @@ export default function MaintenancePage() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {filtered.map(ticket => (
-              <TableRow key={ticket.id}>
-                <TableCell className="font-medium font-mono text-xs">{ticket.ticketId}</TableCell>
-                <TableCell>
-                  <div>
-                    <p className="text-sm font-medium">{ticket.assetName}</p>
-                    <p className="text-xs text-muted-foreground">{ticket.assetTag}</p>
-                  </div>
-                </TableCell>
-                <TableCell className="max-w-[200px] truncate text-muted-foreground text-sm">{ticket.issueDescription}</TableCell>
-                <TableCell><StatusBadge status={ticket.priority} /></TableCell>
-                <TableCell><StatusBadge status={ticket.status} /></TableCell>
-                <TableCell className="text-muted-foreground">{ticket.reportedBy}</TableCell>
-                <TableCell className="text-muted-foreground text-sm">{ticket.createdAt}</TableCell>
-                <TableCell className="text-right">
-                  <div className="flex justify-end gap-1">
-                    <Button variant="ghost" size="icon" onClick={() => setDetailTicket(ticket)}>
-                      <Eye className="w-4 h-4" />
-                    </Button>
-                    {isManager && nextStatus[ticket.status] && (
-                      <Button variant="outline" size="sm" onClick={() => handleStatusChange(ticket, nextStatus[ticket.status]!)}>
-                        → {nextStatus[ticket.status]?.replace('_', ' ')}
+            {loading && (
+              <TableRow><TableCell colSpan={8} className="text-center py-8 text-muted-foreground">Loading tickets...</TableCell></TableRow>
+            )}
+            {!loading && filtered.map(ticket => {
+              const asset = assetMap.get(ticket.assetId);
+              const reporter = userMap.get(ticket.reportedByUserId);
+              return (
+                <TableRow key={ticket.id}>
+                  <TableCell className="font-medium font-mono text-xs">{ticket.ticketCode}</TableCell>
+                  <TableCell>
+                    <div>
+                      <p className="text-sm font-medium">{asset?.name || `Asset #${ticket.assetId}`}</p>
+                      <p className="text-xs text-muted-foreground">{asset?.assetTag || '—'}</p>
+                    </div>
+                  </TableCell>
+                  <TableCell className="max-w-[200px] truncate text-muted-foreground text-sm">{ticket.issueDescription}</TableCell>
+                  <TableCell><StatusBadge status={ticket.priority} /></TableCell>
+                  <TableCell><StatusBadge status={ticket.status} /></TableCell>
+                  <TableCell className="text-muted-foreground">{reporter?.fullName || (ticket.reportedByUserId === user?.id ? user.name : `User #${ticket.reportedByUserId}`)}</TableCell>
+                  <TableCell className="text-muted-foreground text-sm">{formatDate(ticket.createdAt)}</TableCell>
+                  <TableCell className="text-right">
+                    <div className="flex justify-end gap-1">
+                      <Button variant="ghost" size="icon" onClick={() => setDetailTicket(ticket)}>
+                        <Eye className="w-4 h-4" />
                       </Button>
-                    )}
-                  </div>
-                </TableCell>
-              </TableRow>
-            ))}
-            {filtered.length === 0 && (
+                      {isManager && nextStatus[ticket.status] && (
+                        <Button variant="outline" size="sm" onClick={() => void handleStatusChange(ticket, nextStatus[ticket.status]!)}>
+                          → {nextStatus[ticket.status]?.replace('_', ' ')}
+                        </Button>
+                      )}
+                    </div>
+                  </TableCell>
+                </TableRow>
+              );
+            })}
+            {!loading && filtered.length === 0 && (
               <TableRow><TableCell colSpan={8} className="text-center py-8 text-muted-foreground">No tickets found</TableCell></TableRow>
             )}
           </TableBody>
         </Table>
       </div>
 
-      {/* Ticket Detail Dialog */}
       <Dialog open={!!detailTicket} onOpenChange={(open) => !open && setDetailTicket(null)}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle className="font-display">Ticket {detailTicket?.ticketId}</DialogTitle>
+            <DialogTitle className="font-display">Ticket {detailTicket?.ticketCode}</DialogTitle>
           </DialogHeader>
           {detailTicket && (
             <div className="space-y-4 mt-2">
               <div className="grid grid-cols-2 gap-3 text-sm">
-                <div><span className="text-muted-foreground">Asset:</span> <span className="font-medium">{detailTicket.assetName}</span></div>
-                <div><span className="text-muted-foreground">Tag:</span> <span className="font-mono">{detailTicket.assetTag}</span></div>
+                <div><span className="text-muted-foreground">Asset:</span> <span className="font-medium">{assetMap.get(detailTicket.assetId)?.name || `Asset #${detailTicket.assetId}`}</span></div>
+                <div><span className="text-muted-foreground">Tag:</span> <span className="font-mono">{assetMap.get(detailTicket.assetId)?.assetTag || '—'}</span></div>
                 <div className="flex items-center gap-2"><span className="text-muted-foreground">Priority:</span> <StatusBadge status={detailTicket.priority} /></div>
                 <div className="flex items-center gap-2"><span className="text-muted-foreground">Status:</span> <StatusBadge status={detailTicket.status} /></div>
-                <div><span className="text-muted-foreground">Reported by:</span> {detailTicket.reportedBy}</div>
-                <div><span className="text-muted-foreground">Created:</span> {detailTicket.createdAt}</div>
-                {detailTicket.technician && <div><span className="text-muted-foreground">Technician:</span> {detailTicket.technician}</div>}
-                {detailTicket.resolvedAt && <div><span className="text-muted-foreground">Resolved:</span> {detailTicket.resolvedAt}</div>}
+                <div><span className="text-muted-foreground">Reported by:</span> {userMap.get(detailTicket.reportedByUserId)?.fullName || `User #${detailTicket.reportedByUserId}`}</div>
+                <div><span className="text-muted-foreground">Created:</span> {formatDate(detailTicket.createdAt)}</div>
+                {detailTicket.technicianUserId && <div><span className="text-muted-foreground">Technician:</span> {userMap.get(detailTicket.technicianUserId)?.fullName || `User #${detailTicket.technicianUserId}`}</div>}
+                {detailTicket.resolvedAt && <div><span className="text-muted-foreground">Resolved:</span> {formatDate(detailTicket.resolvedAt)}</div>}
               </div>
               <div>
                 <p className="text-sm text-muted-foreground mb-1">Issue Description</p>
@@ -253,16 +312,18 @@ export default function MaintenancePage() {
                 <div>
                   <p className="text-sm text-muted-foreground mb-2 flex items-center gap-1"><MessageSquare className="w-3 h-3" /> Notes</p>
                   <div className="space-y-2">
-                    {detailTicket.notes.map((note, i) => (
-                      <p key={i} className="text-sm bg-muted rounded-lg p-2 pl-3 border-l-2 border-primary">{note}</p>
+                    {detailTicket.notes.map(note => (
+                      <p key={note.id} className="text-sm bg-muted rounded-lg p-2 pl-3 border-l-2 border-primary">
+                        {note.note}
+                      </p>
                     ))}
                   </div>
                 </div>
               )}
-              {isManager && detailTicket.status !== 'CLOSED' && (
+              {detailTicket.status !== 'CLOSED' && (
                 <div className="flex gap-2">
                   <Input placeholder="Add a note..." value={noteText} onChange={e => setNoteText(e.target.value)} className="flex-1" />
-                  <Button onClick={handleAddNote} disabled={!noteText.trim()} size="sm">Add Note</Button>
+                  <Button onClick={() => void handleAddNote()} disabled={!noteText.trim()} size="sm">Add Note</Button>
                 </div>
               )}
             </div>

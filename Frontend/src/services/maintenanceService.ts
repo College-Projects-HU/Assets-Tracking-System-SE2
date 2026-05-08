@@ -1,39 +1,38 @@
 import api from './api';
-import type { MaintenanceTicket } from '@/lib/mock-data';
+import type { MaintenanceTicketRecord, TicketPriority, TicketStatus } from '@/types/api';
 
 export interface CreateTicketRequest {
   assetId: number;
   issueDescription: string;
-  priority: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
+  priority: TicketPriority;
+  scheduledAt?: string;
 }
 
 export interface UpdateTicketRequest {
-  status?: 'OPEN' | 'IN_PROGRESS' | 'RESOLVED' | 'CLOSED';
+  status: TicketStatus;
   resolutionDetails?: string;
-  technician?: string;
+  technicianUserId?: number;
+  maintenanceCost?: number;
 }
 
 const maintenanceService = {
   getAll: () =>
-    api.get<MaintenanceTicket[]>('/maintenance/tickets'),
+    api.get<MaintenanceTicketRecord[]>('/maintenance'),
 
   getById: (id: number) =>
-    api.get<MaintenanceTicket>(`/maintenance/tickets/${id}`),
+    api.get<MaintenanceTicketRecord>(`/maintenance/${id}`),
 
   create: (data: CreateTicketRequest) =>
-    api.post<MaintenanceTicket>('/maintenance/tickets', data),
+    api.post<MaintenanceTicketRecord>('/maintenance', data),
 
   update: (id: number, data: UpdateTicketRequest) =>
-    api.put<MaintenanceTicket>(`/maintenance/tickets/${id}`, data),
+    api.put<MaintenanceTicketRecord>(`/maintenance/${id}/status`, data),
 
   addNote: (id: number, note: string) =>
-    api.post(`/maintenance/tickets/${id}/notes`, { note }),
-
-  getByAsset: (assetId: number) =>
-    api.get<MaintenanceTicket[]>(`/maintenance/tickets/asset/${assetId}`),
+    api.post(`/maintenance/${id}/notes`, { note }),
 
   getMyTickets: () =>
-    api.get<MaintenanceTicket[]>('/maintenance/tickets/my'),
+    api.get<MaintenanceTicketRecord[]>('/maintenance/my'),
 };
 
 export default maintenanceService;

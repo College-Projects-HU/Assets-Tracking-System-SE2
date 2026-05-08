@@ -1,4 +1,5 @@
 import api from './api';
+import type { AuthTokens, UserRole } from '@/types/api';
 
 export interface LoginRequest {
   email: string;
@@ -6,32 +7,21 @@ export interface LoginRequest {
 }
 
 export interface RegisterRequest {
-  name: string;
+  fullName: string;
   email: string;
   password: string;
-  role: 'ADMIN' | 'ASSET_MANAGER' | 'EMPLOYEE';
-}
-
-export interface AuthResponse {
-  id: number;
-  name: string;
-  email: string;
-  role: 'ADMIN' | 'ASSET_MANAGER' | 'EMPLOYEE';
-  token: string;
+  role: UserRole;
 }
 
 const authService = {
   login: (data: LoginRequest) =>
-    api.post<AuthResponse>('/auth/login', data),
+    api.post<AuthTokens>('/auth/login', data),
 
   register: (data: RegisterRequest) =>
-    api.post<AuthResponse>('/auth/register', data),
+    api.post<AuthTokens>('/auth/register', data),
 
-  validateToken: () =>
-    api.get<{ valid: boolean }>('/auth/validate'),
-
-  refreshToken: () =>
-    api.post<{ token: string }>('/auth/refresh'),
+  refreshToken: (refreshToken: string) =>
+    api.post<AuthTokens>('/auth/refresh', { refreshToken }),
 
   logout: () =>
     api.post('/auth/logout'),

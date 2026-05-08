@@ -31,7 +31,7 @@ public class UserController {
     }
 
     @GetMapping
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN','ASSET_MANAGER')")
     public List<UserResponse> listUsers(@RequestParam(required = false) String role,
                                         @RequestParam(required = false) Boolean active,
                                         @RequestParam(required = false) String q) {

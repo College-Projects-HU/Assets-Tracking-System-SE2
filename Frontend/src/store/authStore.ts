@@ -1,6 +1,5 @@
 import { create } from 'zustand';
-
-export type UserRole = 'ADMIN' | 'ASSET_MANAGER' | 'EMPLOYEE';
+import type { UserRole } from '@/types/api';
 
 export interface User {
   id: number;
@@ -8,6 +7,7 @@ export interface User {
   email: string;
   role: UserRole;
   token: string;
+  refreshToken?: string;
 }
 
 interface AuthState {
@@ -18,7 +18,7 @@ interface AuthState {
 }
 
 const stored = localStorage.getItem('ats_user');
-const initialUser = stored ? JSON.parse(stored) : null;
+const initialUser: User | null = stored ? JSON.parse(stored) : null;
 
 export const useAuthStore = create<AuthState>((set) => ({
   user: initialUser,
