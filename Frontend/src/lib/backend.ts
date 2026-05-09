@@ -161,7 +161,6 @@ export const mapAssetDto = (asset: BackendAssetDto): Asset => ({
   status: (asset.status as AssetStatus) || 'AVAILABLE',
   description: asset.location || '',
   purchaseDate: formatDate(asset.purchaseDate),
-  purchaseCost: 0,
   warrantyExpiry: formatDate(asset.warrantyExpiry),
   addDate: formatDate(asset.purchaseDate),
   assignedTo: asset.assignedUserName || undefined,

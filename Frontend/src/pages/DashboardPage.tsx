@@ -9,9 +9,9 @@ import maintenanceService from '@/services/maintenanceService';
 
 export default function DashboardPage() {
   const { user } = useAuth();
-  const isManager = user?.role === 'ADMIN' || user?.role === 'ASSET_MANAGER';
+  const isAdmin = user?.role === 'ADMIN';
+  const isManager = user?.role === 'ASSET_MANAGER';
 
-  const [stats, setStats] = useState<any | null>(null);
   const [assets, setAssets] = useState<any[]>([]);
   const [tickets, setTickets] = useState<any[]>([]);
   const [history, setHistory] = useState<any[]>([]);
@@ -22,22 +22,21 @@ export default function DashboardPage() {
     if (!user) return;
 
     setLoading(true);
-    const promises: Promise<any>[] = isManager
+    const promises: Promise<any>[] = (isAdmin || isManager)
       ? [
-          reportService.getDashboardStats(),
+          Promise.resolve({ data: null }),
           assetService.getAll(),
-          maintenanceService.getAll(),
+          isAdmin ? Promise.resolve({ data: [] }) : maintenanceService.getAll(),
           reportService.getAuditLog(),
         ]
       : [
           Promise.resolve({ data: null }),
-          Promise.resolve({ data: [] }),
+          assetService.getAll(),
           maintenanceService.getMyTickets(),
           Promise.resolve({ data: [] }),
         ];
 
-    Promise.all(promises).then(([sRes, aRes, mRes, hRes]) => {
-      setStats(sRes.data || null);
+    Promise.all(promises).then(([, aRes, mRes, hRes]) => {
       setAssets(aRes.data || []);
       setTickets(mRes.data || []);
       setHistory(hRes.data || []);
@@ -46,7 +45,7 @@ export default function DashboardPage() {
       console.error('Dashboard load error', err);
       setError('Failed to load dashboard data from backend');
     }).finally(() => setLoading(false));
-  }, [isManager, user]);
+  }, [isAdmin, isManager, user]);
 
   // Employee-specific data
   const myAssets = assets.filter(a => a.assignedToId === user?.id);
@@ -62,7 +61,7 @@ export default function DashboardPage() {
       <div>
         <h1 className="text-2xl font-display font-bold">Welcome back, {user?.name?.split(' ')[0]}</h1>
         <p className="text-muted-foreground mt-1">
-          {isManager ? "Here's an overview of your IT asset management system." : "Here's your personal asset and ticket summary."}
+          {(isAdmin || isManager) ? "Here's an overview of your IT asset management system." : "Here's your personal asset and ticket summary."}
         </p>
       </div>
 
@@ -73,7 +72,7 @@ export default function DashboardPage() {
         <div className="text-sm text-destructive">{error}</div>
       ) : (
         /* Stats — role-aware */
-        (isManager ? (() => {
+        ((isAdmin || isManager) ? (() => {
           const dynamicStats = {
             totalAssets: assets.length,
             assigned: assets.filter(a => a.status === 'ASSIGNED').length,
@@ -100,7 +99,7 @@ export default function DashboardPage() {
       )}
 
       {/* Employee: My Assets */}
-      {!isManager && (
+      {!(isAdmin || isManager) && (
         <div className="bg-card rounded-xl border shadow-card p-5">
           <h2 className="font-display font-semibold mb-4">My Assigned Assets</h2>
           {myAssets.length === 0 ? (
@@ -122,7 +121,7 @@ export default function DashboardPage() {
       )}
 
       {/* Manager panels */}
-      {isManager && (
+      {(isAdmin || isManager) && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Recent Assets */}
           <div className="bg-card rounded-xl border shadow-card p-5">
@@ -174,7 +173,7 @@ export default function DashboardPage() {
       <div className="bg-card rounded-xl border shadow-card p-5">
         <h2 className="font-display font-semibold mb-4">Recent Activity</h2>
         <div className="space-y-3">
-          {recentHistory.slice(0, isManager ? 6 : 3).map(item => (
+          {recentHistory.slice(0, (isAdmin || isManager) ? 6 : 3).map(item => (
             <div key={item.id} className="flex items-start gap-3 py-2 border-b border-border last:border-0">
               <div className="w-2 h-2 rounded-full bg-primary mt-1.5 shrink-0" />
               <div>

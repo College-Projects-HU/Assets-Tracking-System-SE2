@@ -43,7 +43,11 @@ public class InternalAuthController {
     @PutMapping("/users/{id}/role")
     public ResponseEntity<User> updateRole(@PathVariable("id") Long id, @RequestParam("roleName") String roleName) {
         User user = userRepository.findById(id).orElseThrow();
-        Role role = roleRepository.findByName(roleName).orElseThrow();
+        String normalizedRoleName = roleName == null ? "" : roleName.trim().toUpperCase();
+        if (!normalizedRoleName.startsWith("ROLE_")) {
+            normalizedRoleName = "ROLE_" + normalizedRoleName;
+        }
+        Role role = roleRepository.findByName(normalizedRoleName).orElseThrow();
         user.setRole(role);
         return ResponseEntity.ok(userRepository.save(user));
     }

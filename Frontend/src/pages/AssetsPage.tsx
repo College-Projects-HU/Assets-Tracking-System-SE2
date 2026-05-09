@@ -48,7 +48,10 @@ export default function AssetsPage() {
   const visibleAssets = isManager ? assets : assets.filter(a => a.assignedToId === user?.id);
 
   const filtered = visibleAssets.filter(a => {
-    const matchSearch = a.name.toLowerCase().includes(search.toLowerCase()) || a.type.toLowerCase().includes(search.toLowerCase()) || a.assetTag.toLowerCase().includes(search.toLowerCase());
+    const name = (a.name || '').toLowerCase();
+    const type = (a.type || '').toLowerCase();
+    const assetTag = (a.assetTag || '').toLowerCase();
+    const matchSearch = name.includes(search.toLowerCase()) || type.includes(search.toLowerCase()) || assetTag.includes(search.toLowerCase());
     const matchStatus = filterStatus === 'ALL' || a.status === filterStatus;
     const matchCategory = filterCategory === 'ALL' || a.category === filterCategory;
     return matchSearch && matchStatus && matchCategory;
@@ -144,6 +147,19 @@ export default function AssetsPage() {
   const handleBulkImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    const validExtensions = ['.csv', '.xlsx'];
+    const fileName = file.name.toLowerCase();
+    const hasValidExtension = validExtensions.some(ext => fileName.endsWith(ext));
+    if (!hasValidExtension) {
+      setError('Invalid file type. Please upload a CSV or XLSX file.');
+      if (fileInputRef.current) fileInputRef.current.value = '';
+      return;
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      setError('File is too large. Maximum size is 10MB.');
+      if (fileInputRef.current) fileInputRef.current.value = '';
+      return;
+    }
     setLoading(true);
     try {
       await assetService.bulkImport(file);

@@ -2,11 +2,9 @@ import api from './api';
 import type { AssetHistoryItem } from '@/lib/mock-data';
 import {
   buildHistoryFromAssets,
-  formatDate,
   mapAssignmentDto,
   mapAssetDto,
   mapTicketDto,
-  splitNotes,
   type BackendAssetDto,
   type BackendAssignmentDto,
   type BackendMaintenanceTicketDto,
@@ -46,7 +44,8 @@ const fetchTickets = () =>
           t.reportedByUserId ? `User ${t.reportedByUserId}` : 'System',
         ),
       ),
-    );
+    )
+    .catch(() => [] as ReturnType<typeof mapTicketDto>[]);
 
 // Fetch assignments directly — no nested service calls
 const fetchAssignments = () =>
@@ -83,25 +82,26 @@ const reportService = {
    * Assignments degrade gracefully if the endpoint is forbidden for this role.
    */
   getAuditLog: () =>
-    Promise.all([fetchAssets(), fetchAssignments(), fetchTickets()]).then(
-      ([assets, assignments, tickets]) => {
-        const assetHistory = buildHistoryFromAssets(assets);
-        const assignmentHistory = assignments.map(mapAssignmentDto);
-        const ticketHistory: AssetHistoryItem[] = tickets.map((ticket) => ({
-          id: ticket.id,
-          assetName: ticket.assetName,
-          assetTag: ticket.assetTag,
-          action: ticket.status,
-          performedBy: ticket.reportedBy,
-          date: ticket.createdAt,
-          details: ticket.issueDescription,
-        }));
-
-        return {
-          data: [...assignmentHistory, ...assetHistory, ...ticketHistory].slice(0, 50),
-        };
-      },
-    ),
+    api.get<PageResponse<{
+      id: number;
+      actor: string;
+      action: string;
+      details: string;
+      resourceType: string;
+      resourceId: string;
+      createdAt: string;
+    }>>('/reports/audit-log', { params: { page: 0, size: 1000 } }).then((response) => ({
+      ...response,
+      data: (response.data.content || []).map((log) => ({
+        id: log.id,
+        assetName: log.resourceType || 'Resource',
+        assetTag: log.resourceId || '-',
+        action: log.action,
+        performedBy: log.actor,
+        date: log.createdAt,
+        details: log.details,
+      } as AssetHistoryItem)),
+    })),
 
   getAssetReport: (format: 'json' | 'csv' = 'json') =>
     fetchAssets().then((data) => ({ data: format === 'json' ? data : data })),

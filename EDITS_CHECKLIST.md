@@ -17,7 +17,7 @@ Status labels: `DONE`, `PARTIAL`, `NOT DONE`
 
 4. Apply-changes button for user management changes; batch apply revoke/delete; confirmations/loading for critical actions across system.
 - Status: `PARTIAL`
-- Notes: Staff page now batches role/status changes with `Apply Changes`, loading state, and confirmation before apply. Critical confirmations/loading are not yet applied across all modules/actions.
+- Notes: Staff page batches role/status changes; confirmations/loading now added in assets delete, maintenance status updates, assignment create/revoke, and approval approve/reject. Still not fully unified across every destructive action in the app.
 
 5. Create asset: if status is `ASSIGNED`, must choose assigned user.
 - Status: `DONE`
@@ -25,7 +25,7 @@ Status labels: `DONE`, `PARTIAL`, `NOT DONE`
 
 6. Add loading effects where needed.
 - Status: `PARTIAL`
-- Notes: Added in several pages (login, staff apply/create, assets save/delete/import areas). Not systematically implemented in every page/action.
+- Notes: Added in login, staff, assets, maintenance, assignments, and approvals for key actions. Some secondary flows still need polishing for full consistency.
 
 7. Improve input validation for login/registration and necessary parts.
 - Status: `PARTIAL`
@@ -37,7 +37,7 @@ Status labels: `DONE`, `PARTIAL`, `NOT DONE`
 
 9. Bulk asset import (xlsx/csv) on frontend with validation.
 - Status: `PARTIAL`
-- Notes: Frontend import button and upload call implemented. Basic error handling exists; richer client-side file/schema validation is still limited.
+- Notes: Frontend import now validates extension (`.csv`/`.xlsx`) and max size (10MB) before upload, plus backend-error handling. Schema/content-row validation is still limited.
 
 10. Audit logs: admin-only access; export CSV in frontend.
 - Status: `DONE`
@@ -49,11 +49,11 @@ Status labels: `DONE`, `PARTIAL`, `NOT DONE`
 
 12. Remove/fix asset cost attribute mismatch with DB.
 - Status: `PARTIAL`
-- Notes: Asset form removed `purchaseCost`, but full backend/schema audit still needed to ensure no remaining API/UI references.
+- Notes: Asset form and backend mapping no longer rely on purchase cost; frontend `Asset` model now makes it optional. Legacy mock data still includes cost values and report-side maintenance cost remains separate by design.
 
 13. Fix dashboard/stat cards to be dynamic from stored data.
-- Status: `PARTIAL`
-- Notes: Dynamic calculations added in dashboard/reports from fetched data; broader consistency/per-role correctness still needs verification.
+- Status: `DONE`
+- Notes: Dashboard and reports now compute card values dynamically from fetched backend data for both manager and employee role paths.
 
 14. Assets delete bug + URL/port odd behavior after refresh; explain why.
 - Status: `PARTIAL`

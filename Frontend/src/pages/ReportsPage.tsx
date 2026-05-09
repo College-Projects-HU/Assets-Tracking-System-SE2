@@ -7,8 +7,11 @@ import { Download, Package, Wrench, AlertTriangle } from 'lucide-react';
 import reportService from '@/services/reportService';
 import assetService from '@/services/assetService';
 import maintenanceService from '@/services/maintenanceService';
+import { useAuth } from '@/lib/auth';
 
 export default function ReportsPage() {
+  const { user } = useAuth();
+  const isAdmin = user?.role === 'ADMIN';
   const [assets, setAssets] = useState<any[]>([]);
   const [tickets, setTickets] = useState<any[]>([]);
   const [stats, setStats] = useState<any | null>(null);
@@ -19,7 +22,7 @@ export default function ReportsPage() {
     setLoading(true);
     Promise.all([
       assetService.getAll(),
-      maintenanceService.getAll(),
+      isAdmin ? Promise.resolve({ data: [] }) : maintenanceService.getAll(),
       reportService.getDashboardStats(),
     ]).then(([aRes, mRes, sRes]) => {
       setAssets(aRes.data || []);
@@ -30,7 +33,7 @@ export default function ReportsPage() {
       console.error('Reports load error', err);
       setError('Failed to load report data from backend');
     }).finally(() => setLoading(false));
-  }, []);
+  }, [isAdmin]);
 
   const warrantyThreshold = new Date();
   warrantyThreshold.setMonth(warrantyThreshold.getMonth() + 3);

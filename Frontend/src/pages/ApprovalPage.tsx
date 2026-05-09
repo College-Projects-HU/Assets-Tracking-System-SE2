@@ -10,6 +10,7 @@ export default function ApprovalPage() {
   const [pendingUsers, setPendingUsers] = useState<StaffMember[]>([]);
   const [loading, setLoading] = useState(true);
   const [isApplying, setIsApplying] = useState<Record<number, boolean>>({});
+  const [actionError, setActionError] = useState<string | null>(null);
 
   useEffect(() => {
     loadPending();
@@ -27,24 +28,30 @@ export default function ApprovalPage() {
   };
 
   const handleApprove = async (id: number) => {
+    if (!window.confirm('Approve this Asset Manager account?')) return;
+    setActionError(null);
     setIsApplying(prev => ({ ...prev, [id]: true }));
     try {
       await userService.activate(id);
       setPendingUsers(pendingUsers.filter(u => u.id !== id));
     } catch (err) {
       console.error('Approval failed', err);
+      setActionError('Failed to approve user');
     } finally {
       setIsApplying(prev => ({ ...prev, [id]: false }));
     }
   };
 
   const handleReject = async (id: number) => {
+    if (!window.confirm('Reject and deactivate this account request?')) return;
+    setActionError(null);
     setIsApplying(prev => ({ ...prev, [id]: true }));
     try {
       await userService.delete(id);
       setPendingUsers(pendingUsers.filter(u => u.id !== id));
     } catch (err) {
       console.error('Rejection failed', err);
+      setActionError('Failed to reject user');
     } finally {
       setIsApplying(prev => ({ ...prev, [id]: false }));
     }
@@ -56,6 +63,7 @@ export default function ApprovalPage() {
         <h1 className="text-2xl font-display font-bold">Pending Approvals</h1>
         <p className="text-muted-foreground text-sm mt-1">Approve or reject new Asset Manager registrations</p>
       </div>
+      {actionError && <div className="text-sm text-destructive">{actionError}</div>}
 
       {loading ? (
         <div className="text-sm text-muted-foreground">Loading pending requests...</div>

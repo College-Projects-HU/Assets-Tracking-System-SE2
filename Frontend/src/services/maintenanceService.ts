@@ -18,17 +18,21 @@ export interface UpdateTicketRequest {
 
 const maintenanceService = {
   getAll: () =>
-    api.get<PageResponse<BackendMaintenanceTicketDto>>('/maintenance').then((ticketsRes) => ({
-      ...ticketsRes,
-      data: (ticketsRes.data.content || []).map((ticket) =>
-        mapTicketDto(
-          ticket,
-          `Asset #${ticket.assetId}`,
-          `ASSET-${String(ticket.assetId).padStart(3, '0')}`,
-          ticket.reportedByUserId ? `User ${ticket.reportedByUserId}` : 'System',
-        ),
-      ),
-    })),
+    Promise.all([api.get<PageResponse<BackendMaintenanceTicketDto>>('/maintenance'), assetService.getAll()]).then(([ticketsRes, assetsRes]) => {
+      const assetMap = new Map((assetsRes.data || []).map((a) => [a.id, a]));
+      return {
+        ...ticketsRes,
+        data: (ticketsRes.data.content || []).map((ticket) => {
+          const asset = assetMap.get(ticket.assetId);
+          return mapTicketDto(
+            ticket,
+            asset?.name || `Asset #${ticket.assetId}`,
+            asset?.assetTag || `ASSET-${String(ticket.assetId).padStart(3, '0')}`,
+            ticket.reportedByUserId ? `User ${ticket.reportedByUserId}` : 'System',
+          );
+        }),
+      };
+    }),
 
   getById: (id: number) =>
     api.get<BackendMaintenanceTicketDto>(`/maintenance/${id}`).then((response) => ({
@@ -79,10 +83,21 @@ const maintenanceService = {
     api.get<BackendMaintenanceTicketDto[]>(`/maintenance/asset/${assetId}`),
 
   getMyTickets: () =>
-    api.get<PageResponse<BackendMaintenanceTicketDto>>('/maintenance/my').then((response) => ({
-      ...response,
-      data: (response.data.content || []).map((ticket) => mapTicketDto(ticket, `Asset #${ticket.assetId}`, `ASSET-${String(ticket.assetId).padStart(3, '0')}`, ticket.reportedByUserId ? `User ${ticket.reportedByUserId}` : 'You')),
-    })),
+    Promise.all([api.get<PageResponse<BackendMaintenanceTicketDto>>('/maintenance/my'), assetService.getAll()]).then(([response, assetsRes]) => {
+      const assetMap = new Map((assetsRes.data || []).map((a) => [a.id, a]));
+      return {
+        ...response,
+        data: (response.data.content || []).map((ticket) => {
+          const asset = assetMap.get(ticket.assetId);
+          return mapTicketDto(
+            ticket,
+            asset?.name || `Asset #${ticket.assetId}`,
+            asset?.assetTag || `ASSET-${String(ticket.assetId).padStart(3, '0')}`,
+            ticket.reportedByUserId ? `User ${ticket.reportedByUserId}` : 'You',
+          );
+        }),
+      };
+    }),
 };
 
 export default maintenanceService;
