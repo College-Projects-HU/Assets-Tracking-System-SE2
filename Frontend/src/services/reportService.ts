@@ -54,6 +54,35 @@ const fetchAssignments = () =>
     .then((r) => r.data.content || [])
     .catch(() => [] as BackendAssignmentDto[]); // assignments may 403 for some roles — degrade gracefully
 
+const toMillis = (value?: string) => {
+  if (!value) return 0;
+  const ms = new Date(value).getTime();
+  return Number.isNaN(ms) ? 0 : ms;
+};
+
+const buildSyntheticAuditLog = (
+  assets: ReturnType<typeof mapAssetDto>[],
+  assignments: BackendAssignmentDto[],
+  tickets: ReturnType<typeof mapTicketDto>[],
+): AssetHistoryItem[] => {
+  const fromAssets = buildHistoryFromAssets(assets);
+  const fromAssignments = assignments.map(mapAssignmentDto);
+  const fromTickets: AssetHistoryItem[] = tickets.map((ticket) => ({
+    id: ticket.id,
+    assetName: ticket.assetName,
+    assetTag: ticket.assetTag,
+    action: ticket.status,
+    performedBy: ticket.reportedBy,
+    date: ticket.resolvedAt || ticket.updatedAt || ticket.createdAt,
+    details: ticket.issueDescription || 'Maintenance ticket updated',
+  }));
+
+  return [...fromTickets, ...fromAssignments, ...fromAssets]
+    .sort((a, b) => toMillis(b.date) - toMillis(a.date))
+    .slice(0, 200)
+    .map((item, index) => ({ ...item, id: index + 1 }));
+};
+
 const reportService = {
   /**
    * Dashboard stats: computed from assets + tickets fetched directly.
@@ -81,6 +110,11 @@ const reportService = {
    * Audit log: assembled from assets, assignments, and tickets fetched directly.
    * Assignments degrade gracefully if the endpoint is forbidden for this role.
    */
+  getActivityLog: () =>
+    Promise.all([fetchAssets(), fetchAssignments(), fetchTickets()]).then(([assets, assignments, tickets]) => ({
+      data: buildSyntheticAuditLog(assets, assignments, tickets),
+    })),
+
   getAuditLog: () =>
     api.get<PageResponse<{
       id: number;
@@ -101,7 +135,10 @@ const reportService = {
         date: log.createdAt,
         details: log.details,
       } as AssetHistoryItem)),
-    })),
+    })).then((response) => {
+      if ((response.data || []).length > 0) return response;
+      return reportService.getActivityLog();
+    }).catch(() => reportService.getActivityLog()),
 
   getAssetReport: (format: 'json' | 'csv' = 'json') =>
     fetchAssets().then((data) => ({ data: format === 'json' ? data : data })),

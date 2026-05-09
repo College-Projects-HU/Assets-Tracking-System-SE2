@@ -22,29 +22,30 @@ export default function DashboardPage() {
     if (!user) return;
 
     setLoading(true);
-    const promises: Promise<any>[] = (isAdmin || isManager)
-      ? [
-          Promise.resolve({ data: null }),
-          assetService.getAll(),
-          isAdmin ? Promise.resolve({ data: [] }) : maintenanceService.getAll(),
-          reportService.getAuditLog(),
-        ]
-      : [
-          Promise.resolve({ data: null }),
-          assetService.getAll(),
-          maintenanceService.getMyTickets(),
-          Promise.resolve({ data: [] }),
-        ];
+    const ticketsPromise = (isAdmin || isManager)
+      ? (isAdmin ? Promise.resolve({ data: [] }) : maintenanceService.getAll())
+      : maintenanceService.getMyTickets();
+    const historyPromise = isAdmin
+      ? reportService.getAuditLog()
+      : (isManager ? reportService.getActivityLog() : Promise.resolve({ data: [] }));
 
-    Promise.all(promises).then(([, aRes, mRes, hRes]) => {
-      setAssets(aRes.data || []);
-      setTickets(mRes.data || []);
-      setHistory(hRes.data || []);
-      setError(null);
-    }).catch(err => {
-      console.error('Dashboard load error', err);
-      setError('Failed to load dashboard data from backend');
-    }).finally(() => setLoading(false));
+    Promise.allSettled([assetService.getAll(), ticketsPromise, historyPromise])
+      .then(([assetsResult, ticketsResult, historyResult]) => {
+        const assetsData = assetsResult.status === 'fulfilled' ? (assetsResult.value.data || []) : [];
+        const ticketsData = ticketsResult.status === 'fulfilled' ? (ticketsResult.value.data || []) : [];
+        const historyData = historyResult.status === 'fulfilled' ? (historyResult.value.data || []) : [];
+
+        setAssets(assetsData);
+        setTickets(ticketsData);
+        setHistory(historyData);
+
+        if (assetsResult.status === 'rejected') {
+          setError('Failed to load core dashboard data from backend');
+        } else {
+          setError(null);
+        }
+      })
+      .finally(() => setLoading(false));
   }, [isAdmin, isManager, user]);
 
   // Employee-specific data

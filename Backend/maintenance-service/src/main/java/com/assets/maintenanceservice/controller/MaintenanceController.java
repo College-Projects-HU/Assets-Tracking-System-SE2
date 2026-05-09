@@ -31,7 +31,7 @@ public class MaintenanceController {
     }
 
     @PutMapping("/{id}/status")
-    @PreAuthorize("hasAnyRole('ASSET_MANAGER', 'TECHNICIAN')")
+    @PreAuthorize("hasRole('ASSET_MANAGER')")
     public ResponseEntity<MaintenanceTicketDTO> updateTicketStatus(
             @PathVariable("id") Long id,
             @RequestParam("status") String status) {
@@ -39,7 +39,7 @@ public class MaintenanceController {
     }
 
     @PostMapping("/{id}/notes")
-    @PreAuthorize("hasAnyRole('ASSET_MANAGER', 'TECHNICIAN')")
+    @PreAuthorize("hasRole('ASSET_MANAGER')")
     public ResponseEntity<MaintenanceTicketDTO> addNotes(
             @PathVariable("id") Long id,
             @Valid @RequestBody MaintenanceNotesDTO notesDTO) {
@@ -48,11 +48,11 @@ public class MaintenanceController {
 
     /**
      * GET /api/maintenance
-     * - ADMIN / ASSET_MANAGER / TECHNICIAN → all tickets
+     * - ASSET_MANAGER → all tickets
      * - EMPLOYEE → only their own tickets (scoped by X-User-Id)
      */
     @GetMapping
-    @PreAuthorize("hasAnyRole('EMPLOYEE', 'ASSET_MANAGER', 'TECHNICIAN')")
+    @PreAuthorize("hasAnyRole('EMPLOYEE', 'ASSET_MANAGER')")
     public ResponseEntity<Page<MaintenanceTicketDTO>> getAllTickets(
             @RequestHeader(value = "X-User-Id", required = false) Long userId,
             @RequestHeader(value = "X-User-Role", required = false) String userRole,
@@ -74,13 +74,13 @@ public class MaintenanceController {
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize("hasAnyRole('EMPLOYEE', 'ASSET_MANAGER', 'TECHNICIAN')")
+    @PreAuthorize("hasAnyRole('EMPLOYEE', 'ASSET_MANAGER')")
     public ResponseEntity<MaintenanceTicketDTO> getTicketById(@PathVariable("id") Long id) {
         return ResponseEntity.ok(maintenanceService.getTicketById(id));
     }
 
     @GetMapping("/upcoming")
-    @PreAuthorize("hasAnyRole('ASSET_MANAGER', 'TECHNICIAN')")
+    @PreAuthorize("hasRole('ASSET_MANAGER')")
     public ResponseEntity<Page<MaintenanceTicketDTO>> getUpcomingMaintenance(
             @PageableDefault(size = 20, sort = "scheduledDate") Pageable pageable) {
         return ResponseEntity.ok(maintenanceService.getUpcomingMaintenance(pageable));

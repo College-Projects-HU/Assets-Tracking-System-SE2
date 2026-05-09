@@ -91,7 +91,7 @@ class MaintenanceControllerTest {
     }
 
     @Test
-    @WithMockUser(roles = "TECHNICIAN")
+    @WithMockUser(roles = "ASSET_MANAGER")
     void addNotes_Success() throws Exception {
         MaintenanceNotesDTO notes = new MaintenanceNotesDTO("Working on it");
         MaintenanceTicketDTO response = new MaintenanceTicketDTO();
