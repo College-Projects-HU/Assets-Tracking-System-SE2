@@ -1,6 +1,6 @@
 import { Link, useLocation } from 'react-router-dom';
 import { 
-  LayoutDashboard, Package, History, UserPlus, Users, LogOut, Settings, ChevronLeft, ChevronRight, Wrench, BarChart3, Bell
+  LayoutDashboard, Package, History, UserPlus, Users, LogOut, Settings, ChevronLeft, ChevronRight, Wrench, BarChart3, Bell, CheckCircle
 } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
 import { useState } from 'react';
@@ -12,11 +12,12 @@ const navItems = [
   { path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, roles: ['ADMIN', 'ASSET_MANAGER', 'EMPLOYEE'] },
   { path: '/assets', label: 'Assets', icon: Package, roles: ['ADMIN', 'ASSET_MANAGER', 'EMPLOYEE'] },
   { path: '/assignments', label: 'Assignments', icon: UserPlus, roles: ['ADMIN', 'ASSET_MANAGER'] },
-  { path: '/maintenance', label: 'Maintenance', icon: Wrench, roles: ['ADMIN', 'ASSET_MANAGER', 'EMPLOYEE'] },
-  { path: '/history', label: 'Audit Log', icon: History, roles: ['ADMIN', 'ASSET_MANAGER'] },
+  { path: '/maintenance', label: 'Maintenance', icon: Wrench, roles: ['ASSET_MANAGER', 'EMPLOYEE'] },
+  { path: '/history', label: 'Audit Log', icon: History, roles: ['ADMIN'] },
   { path: '/reports', label: 'Reports', icon: BarChart3, roles: ['ADMIN', 'ASSET_MANAGER'] },
   { path: '/staff', label: 'Staff', icon: Users, roles: ['ADMIN'] },
-  { path: '/settings', label: 'Settings', icon: Settings, roles: ['ADMIN'] },
+  { path: '/approvals', label: 'Approvals', icon: CheckCircle, roles: ['ADMIN'] },
+  { path: '/settings', label: 'Settings', icon: Settings, roles: ['ADMIN', 'ASSET_MANAGER', 'EMPLOYEE'] },
 ];
 
 export default function AppSidebar() {

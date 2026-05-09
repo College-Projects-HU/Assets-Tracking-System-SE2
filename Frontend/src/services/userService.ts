@@ -39,6 +39,12 @@ const userService = {
   delete: (id: number) =>
     api.delete(`/users/${id}`),
 
+  activate: (id: number) =>
+    api.put<BackendUserDto>(`/users/${id}/activate`).then((response) => ({
+      ...response,
+      data: mapUserDto(response.data),
+    })),
+
   getById: (id: number) =>
     api.get<BackendUserDto>('/users/profile').then((response) => ({
       ...response,

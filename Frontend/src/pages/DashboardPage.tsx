@@ -73,15 +73,24 @@ export default function DashboardPage() {
         <div className="text-sm text-destructive">{error}</div>
       ) : (
         /* Stats — role-aware */
-        (isManager ? (
+        (isManager ? (() => {
+          const dynamicStats = {
+            totalAssets: assets.length,
+            assigned: assets.filter(a => a.status === 'ASSIGNED').length,
+            available: assets.filter(a => a.status === 'AVAILABLE').length,
+            underMaintenance: assets.filter(a => a.status === 'UNDER_MAINTENANCE').length,
+            openTickets: tickets.filter(t => t.status === 'OPEN' || t.status === 'IN_PROGRESS').length,
+          };
+          return (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-            <StatCard title="Total Assets" value={stats?.totalAssets ?? '—'} icon={Package} variant="primary" />
-            <StatCard title="Assigned" value={stats?.assigned ?? '—'} icon={Users} variant="accent" />
-            <StatCard title="Available" value={stats?.available ?? '—'} icon={CheckCircle} variant="default" />
-            <StatCard title="Under Maintenance" value={stats?.underMaintenance ?? stats?.maintenance ?? '—'} icon={Wrench} variant="warning" />
-            <StatCard title="Open Tickets" value={stats?.openTickets ?? '—'} icon={AlertTriangle} variant="warning" />
+            <StatCard title="Total Assets" value={dynamicStats.totalAssets} icon={Package} variant="primary" />
+            <StatCard title="Assigned" value={dynamicStats.assigned} icon={Users} variant="accent" />
+            <StatCard title="Available" value={dynamicStats.available} icon={CheckCircle} variant="default" />
+            <StatCard title="Under Maintenance" value={dynamicStats.underMaintenance} icon={Wrench} variant="warning" />
+            <StatCard title="Open Tickets" value={dynamicStats.openTickets} icon={AlertTriangle} variant="warning" />
           </div>
-        ) : (
+          );
+        })() : (
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <StatCard title="My Assets" value={myAssets.length} icon={Package} variant="primary" />
             <StatCard title="Open Tickets" value={myOpenTickets.length} icon={Wrench} variant="warning" />

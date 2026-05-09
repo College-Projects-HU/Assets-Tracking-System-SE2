@@ -1,7 +1,9 @@
 import { useState, useEffect } from 'react';
-import { Asset, AssetStatus, AssetCategory } from '@/lib/mock-data';
+import { Asset, AssetStatus, AssetCategory, StaffMember } from '@/lib/mock-data';
 import { useAuth, canManageAssets } from '@/lib/auth';
 import assetService from '@/services/assetService';
+import userService from '@/services/userService';
+import assignmentService from '@/services/assignmentService';
 import StatusBadge from '@/components/StatusBadge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -9,9 +11,10 @@ import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Plus, Search, Edit, Trash2, Download } from 'lucide-react';
+import { Plus, Search, Edit, Trash2, Download, Upload } from 'lucide-react';
+import { useRef } from 'react';
 
-const defaultForm = { name: '', assetTag: '', category: 'HARDWARE' as AssetCategory, type: '', brand: '', serialNumber: '', status: 'AVAILABLE' as AssetStatus, description: '', purchaseDate: '', purchaseCost: 0, warrantyExpiry: '' };
+const defaultForm = { name: '', assetTag: '', category: 'HARDWARE' as AssetCategory, type: '', brand: '', serialNumber: '', status: 'AVAILABLE' as AssetStatus, description: '', purchaseDate: '', warrantyExpiry: '', assignedToId: undefined as number | undefined };
 
 export default function AssetsPage() {
   const { user } = useAuth();
@@ -21,6 +24,8 @@ export default function AssetsPage() {
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [search, setSearch] = useState('');
+  const [users, setUsers] = useState<StaffMember[]>([]);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     setLoading(true);
@@ -28,7 +33,10 @@ export default function AssetsPage() {
       .then(res => { setAssets(res.data || []); setError(null); })
       .catch(err => { console.error('Failed to load assets', err); setError('Failed to load assets'); })
       .finally(() => setLoading(false));
-  }, []);
+    if (isManager) {
+      userService.getAll().then(res => setUsers(res.data || [])).catch(() => {});
+    }
+  }, [isManager]);
   const [filterStatus, setFilterStatus] = useState('ALL');
   const [filterCategory, setFilterCategory] = useState('ALL');
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -53,7 +61,7 @@ export default function AssetsPage() {
 
   const openEdit = (asset: Asset) => {
     setEditingAsset(asset);
-    setForm({ name: asset.name, assetTag: asset.assetTag, category: asset.category, type: asset.type, brand: asset.brand, serialNumber: asset.serialNumber, status: asset.status, description: asset.description, purchaseDate: asset.purchaseDate, purchaseCost: asset.purchaseCost, warrantyExpiry: asset.warrantyExpiry });
+    setForm({ name: asset.name, assetTag: asset.assetTag, category: asset.category, type: asset.type, brand: asset.brand, serialNumber: asset.serialNumber, status: asset.status, description: asset.description, purchaseDate: asset.purchaseDate, warrantyExpiry: asset.warrantyExpiry, assignedToId: asset.assignedToId });
     setDialogOpen(true);
   };
 
@@ -62,7 +70,19 @@ export default function AssetsPage() {
     setSaving(true);
     if (editingAsset) {
       assetService.update(editingAsset.id, form)
-        .then(res => {
+        .then(async res => {
+          if (form.status === 'ASSIGNED' && form.assignedToId && form.assignedToId !== editingAsset.assignedToId) {
+            const assignedUser = users.find(u => u.id === form.assignedToId);
+            if (assignedUser) {
+              try {
+                await assignmentService.create({ assetId: editingAsset.id, userId: assignedUser.id, userName: assignedUser.name, notes: 'Assigned via update' });
+                res.data.assignedTo = assignedUser.name;
+                res.data.assignedToId = assignedUser.id;
+              } catch (e) {
+                console.error('Assignment failed', e);
+              }
+            }
+          }
           setAssets(assets.map(a => a.id === editingAsset.id ? res.data : a));
           setDialogOpen(false);
         })
@@ -70,7 +90,19 @@ export default function AssetsPage() {
         .finally(() => setSaving(false));
     } else {
       assetService.create({ ...form, assetTag: tag })
-        .then(res => {
+        .then(async res => {
+          if (form.status === 'ASSIGNED' && form.assignedToId) {
+            const assignedUser = users.find(u => u.id === form.assignedToId);
+            if (assignedUser) {
+              try {
+                await assignmentService.create({ assetId: res.data.id, userId: assignedUser.id, userName: assignedUser.name, notes: 'Initial assignment' });
+                res.data.assignedTo = assignedUser.name;
+                res.data.assignedToId = assignedUser.id;
+              } catch (e) {
+                console.error('Assignment failed', e);
+              }
+            }
+          }
           setAssets([...assets, res.data]);
           setDialogOpen(false);
         })
@@ -86,14 +118,32 @@ export default function AssetsPage() {
   };
 
   const exportCSV = () => {
-    const headers = ['Asset Tag', 'Name', 'Category', 'Type', 'Brand', 'Serial', 'Status', 'Assigned To', 'Purchase Date', 'Cost', 'Warranty'];
-    const rows = filtered.map(a => [a.assetTag, a.name, a.category, a.type, a.brand, a.serialNumber, a.status, a.assignedTo || '', a.purchaseDate, a.purchaseCost, a.warrantyExpiry]);
+    const headers = ['Asset Tag', 'Name', 'Category', 'Type', 'Brand', 'Serial', 'Status', 'Assigned To', 'Purchase Date', 'Warranty'];
+    const rows = filtered.map(a => [a.assetTag, a.name, a.category, a.type, a.brand, a.serialNumber, a.status, a.assignedTo || '', a.purchaseDate, a.warrantyExpiry]);
     const csv = [headers.join(','), ...rows.map(r => r.map(v => `"${v}"`).join(','))].join('\n');
     const blob = new Blob([csv], { type: 'text/csv' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url; a.download = 'assets.csv'; a.click();
     URL.revokeObjectURL(url);
+  };
+
+  const handleBulkImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setLoading(true);
+    try {
+      await assetService.bulkImport(file);
+      const res = await assetService.getAll();
+      setAssets(res.data || []);
+      setError(null);
+    } catch (err) {
+      console.error('Bulk import failed', err);
+      setError('Bulk import failed. Please check the file format.');
+    } finally {
+      setLoading(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
   };
 
   return (
@@ -108,6 +158,14 @@ export default function AssetsPage() {
         {!loading && !error && (
         <div className="flex gap-2">
           {isManager && <Button variant="outline" onClick={exportCSV}><Download className="w-4 h-4 mr-2" />Export CSV</Button>}
+          {isManager && (
+            <>
+              <input type="file" ref={fileInputRef} className="hidden" accept=".csv,.xlsx" onChange={handleBulkImport} />
+              <Button variant="outline" onClick={() => fileInputRef.current?.click()}>
+                <Upload className="w-4 h-4 mr-2" />Import Assets
+              </Button>
+            </>
+          )}
           {isManager && (
             <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
               <DialogTrigger asChild>
@@ -160,15 +218,11 @@ export default function AssetsPage() {
                       <Input type="date" value={form.purchaseDate} onChange={e => setForm({ ...form, purchaseDate: e.target.value })} />
                     </div>
                     <div className="space-y-2">
-                      <Label>Purchase Cost *</Label>
-                      <Input type="number" value={form.purchaseCost} onChange={e => setForm({ ...form, purchaseCost: Number(e.target.value) })} placeholder="0.00" />
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
                       <Label>Warranty Expiry *</Label>
                       <Input type="date" value={form.warrantyExpiry} onChange={e => setForm({ ...form, warrantyExpiry: e.target.value })} />
                     </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label>Status</Label>
                       <Select value={form.status} onValueChange={v => setForm({ ...form, status: v as AssetStatus })}>
@@ -182,6 +236,17 @@ export default function AssetsPage() {
                         </SelectContent>
                       </Select>
                     </div>
+                    {form.status === 'ASSIGNED' && (
+                      <div className="space-y-2">
+                        <Label>Assigned To</Label>
+                        <Select value={form.assignedToId?.toString() || ''} onValueChange={v => setForm({ ...form, assignedToId: parseInt(v) })}>
+                          <SelectTrigger><SelectValue placeholder="Select user" /></SelectTrigger>
+                          <SelectContent>
+                            {users.map(u => <SelectItem key={u.id} value={u.id.toString()}>{u.name}</SelectItem>)}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    )}
                   </div>
                   <div className="space-y-2">
                     <Label>Description</Label>

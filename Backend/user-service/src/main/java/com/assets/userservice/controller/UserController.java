@@ -59,4 +59,10 @@ public class UserController {
         authServiceClient.updateStatus(id, false);
         return ResponseEntity.noContent().build();
     }
+
+    @PutMapping("/{id}/activate")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<AuthServiceClient.UserDTO> activateUser(@PathVariable("id") Long id) {
+        return ResponseEntity.ok(authServiceClient.updateStatus(id, true));
+    }
 }

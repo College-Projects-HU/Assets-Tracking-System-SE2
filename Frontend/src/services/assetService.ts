@@ -8,7 +8,6 @@ export interface CreateAssetRequest extends Omit<BackendAssetRequest, 'location'
   brand: string;
   serialNumber: string;
   description: string;
-  purchaseCost: number;
   status: Asset['status'];
 }
 
@@ -53,7 +52,6 @@ const assetService = {
       status: (data.status as Asset['status']) || 'AVAILABLE',
       description: data.description ?? '',
       purchaseDate: data.purchaseDate ?? '',
-      purchaseCost: data.purchaseCost ?? 0,
       warrantyExpiry: data.warrantyExpiry ?? '',
     })).then(async (response) => {
       const updated = mapAssetDto(response.data);
@@ -94,6 +92,14 @@ const assetService = {
       const csv = [headers.join(','), ...rows.map((row) => row.map((value) => `"${String(value).replaceAll('"', '""')}"`).join(','))].join('\n');
       return { data: csv };
     }),
+
+  bulkImport: (file: File) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    return api.post('/assets/bulk-import', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+  },
 };
 
 export default assetService;

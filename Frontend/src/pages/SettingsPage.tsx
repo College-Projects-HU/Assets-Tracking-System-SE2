@@ -54,6 +54,7 @@ export default function SettingsPage() {
           </Button>
       </div>
 
+      {user?.role === 'ADMIN' && (
       <div className="bg-card rounded-xl border shadow-card p-6 space-y-4">
         <h2 className="font-display font-semibold">API Configuration</h2>
         <p className="text-sm text-muted-foreground">
@@ -65,6 +66,7 @@ export default function SettingsPage() {
         </div>
         <Button variant="secondary">Update</Button>
       </div>
+      )}
     </div>
   );
 }

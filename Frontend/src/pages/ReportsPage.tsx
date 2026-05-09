@@ -61,28 +61,37 @@ export default function ReportsPage() {
       ) : (
         <>
         {/* Summary Cards */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-        <div className="bg-card rounded-xl border shadow-card p-4 text-center">
-          <Package className="w-5 h-5 mx-auto text-primary mb-1" />
-          <p className="text-2xl font-bold">{stats?.totalAssets ?? '—'}</p>
-          <p className="text-xs text-muted-foreground">Total Assets</p>
-        </div>
-        <div className="bg-card rounded-xl border shadow-card p-4 text-center">
-          <Wrench className="w-5 h-5 mx-auto text-warning mb-1" />
-          <p className="text-2xl font-bold">{(stats?.openTickets ?? 0) + (stats?.inProgressTickets ?? 0)}</p>
-          <p className="text-xs text-muted-foreground">Active Tickets</p>
-        </div>
-        <div className="bg-card rounded-xl border shadow-card p-4 text-center">
-          <AlertTriangle className="w-5 h-5 mx-auto text-destructive mb-1" />
-          <p className="text-2xl font-bold">{expiringWarranty.length}</p>
-          <p className="text-xs text-muted-foreground">Expiring Warranty</p>
-        </div>
-        <div className="bg-card rounded-xl border shadow-card p-4 text-center">
-          <Package className="w-5 h-5 mx-auto text-success mb-1" />
-          <p className="text-2xl font-bold">{stats?.available ?? '—'}</p>
-          <p className="text-xs text-muted-foreground">Available</p>
-        </div>
-      </div>
+        {(() => {
+          const dynamicStats = {
+            totalAssets: assets.length,
+            activeTickets: tickets.filter(t => t.status === 'OPEN' || t.status === 'IN_PROGRESS').length,
+            available: assets.filter(a => a.status === 'AVAILABLE').length,
+          };
+          return (
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+            <div className="bg-card rounded-xl border shadow-card p-4 text-center">
+              <Package className="w-5 h-5 mx-auto text-primary mb-1" />
+              <p className="text-2xl font-bold">{dynamicStats.totalAssets}</p>
+              <p className="text-xs text-muted-foreground">Total Assets</p>
+            </div>
+            <div className="bg-card rounded-xl border shadow-card p-4 text-center">
+              <Wrench className="w-5 h-5 mx-auto text-warning mb-1" />
+              <p className="text-2xl font-bold">{dynamicStats.activeTickets}</p>
+              <p className="text-xs text-muted-foreground">Active Tickets</p>
+            </div>
+            <div className="bg-card rounded-xl border shadow-card p-4 text-center">
+              <AlertTriangle className="w-5 h-5 mx-auto text-destructive mb-1" />
+              <p className="text-2xl font-bold">{expiringWarranty.length}</p>
+              <p className="text-xs text-muted-foreground">Expiring Warranty</p>
+            </div>
+            <div className="bg-card rounded-xl border shadow-card p-4 text-center">
+              <Package className="w-5 h-5 mx-auto text-success mb-1" />
+              <p className="text-2xl font-bold">{dynamicStats.available}</p>
+              <p className="text-xs text-muted-foreground">Available</p>
+            </div>
+          </div>
+          );
+        })()}
 
       <Tabs defaultValue="inventory">
         <TabsList>
@@ -106,7 +115,6 @@ export default function ReportsPage() {
                   <TableHead>Category</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Assigned To</TableHead>
-                  <TableHead>Cost</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -117,7 +125,6 @@ export default function ReportsPage() {
                     <TableCell className="text-muted-foreground">{a.category.replace('_', ' ')}</TableCell>
                     <TableCell><StatusBadge status={a.status} /></TableCell>
                     <TableCell className="text-muted-foreground">{a.assignedTo || '—'}</TableCell>
-                    <TableCell className="text-muted-foreground">${a.purchaseCost.toLocaleString()}</TableCell>
                   </TableRow>
                 ))}
               </TableBody>

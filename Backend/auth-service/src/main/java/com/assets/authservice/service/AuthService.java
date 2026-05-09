@@ -47,9 +47,18 @@ public class AuthService {
         user.setEmail(request.getEmail());
         user.setPassword(passwordEncoder.encode(request.getPassword()));
         user.setRole(role);
-        user.setEnabled(true);
+        user.setEnabled(!role.getName().equals("ROLE_ASSET_MANAGER"));
 
         user = userRepository.save(user);
+
+        if (!user.getEnabled()) {
+            return AuthResponse.builder()
+                    .accessToken("")
+                    .refreshToken("")
+                    .tokenType("Pending_Approval")
+                    .expiresIn(0L)
+                    .build();
+        }
 
         // Generate tokens
         String accessToken = jwtService.generateAccessToken(user);

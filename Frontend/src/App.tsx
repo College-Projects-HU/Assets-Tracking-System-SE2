@@ -11,6 +11,7 @@ import MaintenancePage from "./pages/MaintenancePage";
 import HistoryPage from "./pages/HistoryPage";
 import ReportsPage from "./pages/ReportsPage";
 import StaffPage from "./pages/StaffPage";
+import ApprovalPage from "./pages/ApprovalPage";
 import SettingsPage from "./pages/SettingsPage";
 import DashboardLayout from "./components/DashboardLayout";
 import NotFound from "./pages/NotFound";
@@ -45,11 +46,12 @@ const App = () => (
             <Route path="/dashboard" element={<DashboardPage />} />
             <Route path="/assets" element={<ProtectedPage roles={["ADMIN", "ASSET_MANAGER", "EMPLOYEE"]}><AssetsPage /></ProtectedPage>} />
             <Route path="/assignments" element={<ProtectedPage roles={["ADMIN", "ASSET_MANAGER"]}><AssignmentsPage /></ProtectedPage>} />
-            <Route path="/maintenance" element={<MaintenancePage />} />
-            <Route path="/history" element={<ProtectedPage roles={["ADMIN", "ASSET_MANAGER"]}><HistoryPage /></ProtectedPage>} />
+            <Route path="/maintenance" element={<ProtectedPage roles={["ASSET_MANAGER", "EMPLOYEE"]}><MaintenancePage /></ProtectedPage>} />
+            <Route path="/history" element={<ProtectedPage roles={["ADMIN"]}><HistoryPage /></ProtectedPage>} />
             <Route path="/reports" element={<ProtectedPage roles={["ADMIN", "ASSET_MANAGER"]}><ReportsPage /></ProtectedPage>} />
             <Route path="/staff" element={<ProtectedPage roles={["ADMIN"]}><StaffPage /></ProtectedPage>} />
-            <Route path="/settings" element={<ProtectedPage roles={["ADMIN"]}><SettingsPage /></ProtectedPage>} />
+            <Route path="/approvals" element={<ProtectedPage roles={["ADMIN"]}><ApprovalPage /></ProtectedPage>} />
+            <Route path="/settings" element={<ProtectedPage roles={["ADMIN", "ASSET_MANAGER", "EMPLOYEE"]}><SettingsPage /></ProtectedPage>} />
           </Route>
           <Route path="*" element={<NotFound />} />
         </Routes>

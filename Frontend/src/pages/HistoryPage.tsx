@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Button } from '@/components/ui/button';
+import { Download } from 'lucide-react';
 import reportService from '@/services/reportService';
 import StatusBadge from '@/components/StatusBadge';
 
@@ -17,9 +19,23 @@ export default function HistoryPage() {
   }, []);
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-display font-bold">Audit Log</h1>
-        <p className="text-muted-foreground text-sm mt-1">Complete audit trail of all asset activities</p>
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-display font-bold">Audit Log</h1>
+          <p className="text-muted-foreground text-sm mt-1">Complete audit trail of all asset activities</p>
+        </div>
+        {!loading && !error && (
+          <Button variant="outline" onClick={() => {
+            if (history.length === 0) return;
+            const rows = history.map(h => ({ Asset: h.assetName, Tag: h.assetTag, Action: h.action, PerformedBy: h.performedBy, Details: h.details, Date: h.date }));
+            const headers = Object.keys(rows[0]);
+            const csv = [headers.join(','), ...rows.map(row => headers.map(h => `"${row[h] ?? ''}"`).join(','))].join('\n');
+            const blob = new Blob([csv], { type: 'text/csv' });
+            const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = 'audit_log.csv'; a.click(); URL.revokeObjectURL(url);
+          }}>
+            <Download className="w-4 h-4 mr-2" />Export CSV
+          </Button>
+        )}
       </div>
       {error && <div className="text-sm text-destructive">{error}</div>}
       {loading && <div className="text-sm text-muted-foreground">Loading audit log...</div>}

@@ -48,9 +48,9 @@ public class AssetController {
         if ("EMPLOYEE".equals(normalizedRole) && userId != null) {
             // Employees only see assets assigned to them
             return ResponseEntity.ok(assetService.getAllAssets(category, status, userId, null, pageable));
-        } else if ("ASSET_MANAGER".equals(normalizedRole) && userId != null) {
-            // Asset managers only see assets they created/manage
-            return ResponseEntity.ok(assetService.getAllAssets(category, status, assignedUserId, userId, pageable));
+        } else if ("ASSET_MANAGER".equals(normalizedRole)) {
+            // Asset managers see all assets
+            return ResponseEntity.ok(assetService.getAllAssets(category, status, assignedUserId, null, pageable));
         }
 
         // ADMIN sees everything
