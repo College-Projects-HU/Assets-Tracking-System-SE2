@@ -22,7 +22,7 @@ public class MaintenanceController {
     private final MaintenanceService maintenanceService;
 
     @PostMapping
-    @PreAuthorize("isAuthenticated()")
+    @PreAuthorize("hasRole('EMPLOYEE')")
     public ResponseEntity<MaintenanceTicketDTO> createTicket(
             @Valid @RequestBody MaintenanceTicketRequestDTO requestDTO,
             @RequestHeader(value = "X-User-Id", required = false) Long userId,
@@ -31,7 +31,7 @@ public class MaintenanceController {
     }
 
     @PutMapping("/{id}/status")
-    @PreAuthorize("hasAnyRole('ADMIN', 'ASSET_MANAGER', 'TECHNICIAN')")
+    @PreAuthorize("hasAnyRole('ASSET_MANAGER', 'TECHNICIAN')")
     public ResponseEntity<MaintenanceTicketDTO> updateTicketStatus(
             @PathVariable("id") Long id,
             @RequestParam("status") String status) {
@@ -39,7 +39,7 @@ public class MaintenanceController {
     }
 
     @PostMapping("/{id}/notes")
-    @PreAuthorize("hasAnyRole('ADMIN', 'ASSET_MANAGER', 'TECHNICIAN')")
+    @PreAuthorize("hasAnyRole('ASSET_MANAGER', 'TECHNICIAN')")
     public ResponseEntity<MaintenanceTicketDTO> addNotes(
             @PathVariable("id") Long id,
             @Valid @RequestBody MaintenanceNotesDTO notesDTO) {
@@ -52,7 +52,7 @@ public class MaintenanceController {
      * - EMPLOYEE → only their own tickets (scoped by X-User-Id)
      */
     @GetMapping
-    @PreAuthorize("isAuthenticated()")
+    @PreAuthorize("hasAnyRole('EMPLOYEE', 'ASSET_MANAGER', 'TECHNICIAN')")
     public ResponseEntity<Page<MaintenanceTicketDTO>> getAllTickets(
             @RequestHeader(value = "X-User-Id", required = false) Long userId,
             @RequestHeader(value = "X-User-Role", required = false) String userRole,
@@ -66,7 +66,7 @@ public class MaintenanceController {
     }
 
     @GetMapping("/my")
-    @PreAuthorize("isAuthenticated()")
+    @PreAuthorize("hasRole('EMPLOYEE')")
     public ResponseEntity<Page<MaintenanceTicketDTO>> getMyTickets(
             @RequestHeader(value = "X-User-Id", required = false) Long userId,
             @PageableDefault(size = 20) Pageable pageable) {
@@ -74,13 +74,13 @@ public class MaintenanceController {
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize("isAuthenticated()")
+    @PreAuthorize("hasAnyRole('EMPLOYEE', 'ASSET_MANAGER', 'TECHNICIAN')")
     public ResponseEntity<MaintenanceTicketDTO> getTicketById(@PathVariable("id") Long id) {
         return ResponseEntity.ok(maintenanceService.getTicketById(id));
     }
 
     @GetMapping("/upcoming")
-    @PreAuthorize("hasAnyRole('ADMIN', 'ASSET_MANAGER', 'TECHNICIAN')")
+    @PreAuthorize("hasAnyRole('ASSET_MANAGER', 'TECHNICIAN')")
     public ResponseEntity<Page<MaintenanceTicketDTO>> getUpcomingMaintenance(
             @PageableDefault(size = 20, sort = "scheduledDate") Pageable pageable) {
         return ResponseEntity.ok(maintenanceService.getUpcomingMaintenance(pageable));

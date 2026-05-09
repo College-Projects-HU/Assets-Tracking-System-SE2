@@ -31,7 +31,8 @@ api.interceptors.response.use(
     const isAuthRequest = requestUrl.includes('/auth/login') || requestUrl.includes('/auth/register') || requestUrl.includes('/auth/refresh');
     if (error.response?.status === 401 && !isAuthRequest) {
       useAuthStore.getState().logout();
-      window.location.href = '/login';
+      // Let Protected routes redirect to /login through React Router,
+      // avoiding hard reload side-effects on SPA routes.
     }
     return Promise.reject(error);
   }

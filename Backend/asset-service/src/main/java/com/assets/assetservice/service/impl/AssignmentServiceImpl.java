@@ -1,5 +1,6 @@
 package com.assets.assetservice.service.impl;
 
+import com.assets.assetservice.client.NotificationServiceClient;
 import com.assets.assetservice.dto.AssignmentDTO;
 import com.assets.assetservice.dto.AssignmentRequestDTO;
 import com.assets.assetservice.entity.Asset;
@@ -29,6 +30,7 @@ public class AssignmentServiceImpl implements AssignmentService {
 
     private final AssignmentRepository assignmentRepository;
     private final AssetRepository assetRepository;
+    private final NotificationServiceClient notificationServiceClient;
 
     @Override
     @Transactional
@@ -69,6 +71,17 @@ public class AssignmentServiceImpl implements AssignmentService {
         asset.setAssignedUserName(requestDTO.getUserName());
         assetRepository.save(asset);
 
+        try {
+            notificationServiceClient.notifyAssignment(
+                    new NotificationServiceClient.NotificationRequest(
+                            requestDTO.getUserId(),
+                            "Asset " + asset.getName() + " (ID " + asset.getId() + ") has been assigned to you.",
+                            "ASSET_ASSIGNED"
+                    )
+            );
+        } catch (Exception ignored) {
+        }
+
         return mapToDTO(assignment);
     }
 
@@ -91,6 +104,17 @@ public class AssignmentServiceImpl implements AssignmentService {
         asset.setAssignedUserId(null);
         asset.setAssignedUserName(null);
         assetRepository.save(asset);
+
+        try {
+            notificationServiceClient.notifyAssignment(
+                    new NotificationServiceClient.NotificationRequest(
+                            assignment.getUserId(),
+                            "Asset " + asset.getName() + " (ID " + asset.getId() + ") assignment was returned/closed.",
+                            "ASSET_RETURNED"
+                    )
+            );
+        } catch (Exception ignored) {
+        }
 
         return mapToDTO(assignment);
     }

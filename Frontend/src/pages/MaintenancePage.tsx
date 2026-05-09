@@ -15,15 +15,19 @@ import { Plus, Search, Eye, MessageSquare } from 'lucide-react';
 
 export default function MaintenancePage() {
   const { user } = useAuth();
-  const isManager = user?.role === 'ADMIN' || user?.role === 'ASSET_MANAGER';
+  const isManager = user?.role === 'ASSET_MANAGER';
+  const isEmployee = user?.role === 'EMPLOYEE';
   const [tickets, setTickets] = useState<MaintenanceTicket[]>([]);
   const [assets, setAssets] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [updatingStatusId, setUpdatingStatusId] = useState<number | null>(null);
 
   useEffect(() => {
     setLoading(true);
-    Promise.all([maintenanceService.getAll(), assetService.getAll()])
+    const ticketsReq = isEmployee ? maintenanceService.getMyTickets() : maintenanceService.getAll();
+    Promise.all([ticketsReq, assetService.getAll()])
       .then(([tRes, aRes]) => {
         setTickets(tRes.data || []);
         setAssets(aRes.data || []);
@@ -31,7 +35,7 @@ export default function MaintenancePage() {
       })
       .catch(err => { console.error('Load failed', err); setError('Failed to load data'); })
       .finally(() => setLoading(false));
-  }, []);
+  }, [isEmployee]);
   const [search, setSearch] = useState('');
   const [filterStatus, setFilterStatus] = useState('ALL');
   const [filterPriority, setFilterPriority] = useState('ALL');
@@ -58,7 +62,9 @@ export default function MaintenancePage() {
   const handleCreate = () => {
     const asset = assets.find(a => a.id === Number(form.assetId));
     if (!asset || !user) return;
+    if (!isEmployee) return;
     setForm(f => ({ ...f, submitError: '' }));
+    setSubmitting(true);
     maintenanceService.create({
       assetId: asset.id,
       issueDescription: form.issueDescription,
@@ -71,10 +77,12 @@ export default function MaintenancePage() {
       console.error('Create ticket failed', err);
       const msg = err?.response?.data?.message || err?.message || 'Failed to submit ticket. Please try again.';
       setForm(f => ({ ...f, submitError: msg }));
-    });
+    }).finally(() => setSubmitting(false));
   };
 
   const handleStatusChange = (ticket: MaintenanceTicket, newStatus: TicketStatus) => {
+    if (!window.confirm(`Change ticket ${ticket.ticketId} status to ${newStatus.replace('_', ' ')}?`)) return;
+    setUpdatingStatusId(ticket.id);
     maintenanceService.update(ticket.id, { status: newStatus })
       .then((res) => {
         setTickets(tickets.map(t => t.id === ticket.id ? res.data : t));
@@ -85,7 +93,8 @@ export default function MaintenancePage() {
       .catch(err => {
         console.error('Update status failed', err);
         setError('Failed to update ticket status');
-      });
+      })
+      .finally(() => setUpdatingStatusId(null));
   };
 
   const handleAddNote = () => {
@@ -119,9 +128,11 @@ export default function MaintenancePage() {
           </p>
         </div>
         <Dialog open={createOpen} onOpenChange={setCreateOpen}>
-          <DialogTrigger asChild>
-            <Button><Plus className="w-4 h-4 mr-2" />New Ticket</Button>
-          </DialogTrigger>
+          {isEmployee && (
+            <DialogTrigger asChild>
+              <Button><Plus className="w-4 h-4 mr-2" />New Ticket</Button>
+            </DialogTrigger>
+          )}
           <DialogContent>
             <DialogHeader>
               <DialogTitle className="font-display">Submit Maintenance Request</DialogTitle>
@@ -159,8 +170,8 @@ export default function MaintenancePage() {
                   {form.submitError}
                 </div>
               )}
-              <Button onClick={handleCreate} className="w-full" disabled={!form.assetId || !form.issueDescription}>
-                Submit Ticket
+              <Button onClick={handleCreate} className="w-full" disabled={submitting || !form.assetId || !form.issueDescription}>
+                {submitting ? 'Submitting...' : 'Submit Ticket'}
               </Button>
             </div>
           </DialogContent>
@@ -231,7 +242,7 @@ export default function MaintenancePage() {
                       <Eye className="w-4 h-4" />
                     </Button>
                     {isManager && nextStatus[ticket.status] && (
-                      <Button variant="outline" size="sm" onClick={() => handleStatusChange(ticket, nextStatus[ticket.status]!)}>
+                      <Button variant="outline" size="sm" disabled={updatingStatusId === ticket.id} onClick={() => handleStatusChange(ticket, nextStatus[ticket.status]!)}>
                         → {nextStatus[ticket.status]?.replace('_', ' ')}
                       </Button>
                     )}

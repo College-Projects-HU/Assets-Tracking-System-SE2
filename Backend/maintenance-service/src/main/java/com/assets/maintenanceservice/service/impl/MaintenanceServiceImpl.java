@@ -1,6 +1,7 @@
 package com.assets.maintenanceservice.service.impl;
 
 import com.assets.maintenanceservice.client.AssetServiceClient;
+import com.assets.maintenanceservice.client.NotificationServiceClient;
 import com.assets.maintenanceservice.dto.MaintenanceNotesDTO;
 import com.assets.maintenanceservice.dto.MaintenanceTicketDTO;
 import com.assets.maintenanceservice.dto.MaintenanceTicketRequestDTO;
@@ -25,10 +26,16 @@ public class MaintenanceServiceImpl implements MaintenanceService {
 
     private final MaintenanceTicketRepository ticketRepository;
     private final AssetServiceClient assetServiceClient;
+    private final NotificationServiceClient notificationServiceClient;
 
     @Override
     @Transactional
     public MaintenanceTicketDTO createTicket(MaintenanceTicketRequestDTO requestDTO, Long userId, String userRole) {
+        String normalizedRole = userRole == null ? "" : userRole.toUpperCase().replace("ROLE_", "");
+        if (!"EMPLOYEE".equals(normalizedRole)) {
+            throw new ForbiddenException("Only employees can create maintenance tickets");
+        }
+
         // Validate asset via Feign
         AssetServiceClient.AssetDTO asset;
         try {
@@ -38,11 +45,12 @@ public class MaintenanceServiceImpl implements MaintenanceService {
         }
 
         // Validate asset belongs to requesting user or user is ADMIN/ASSET_MANAGER
-        boolean isManager = userRole != null && (userRole.contains("ADMIN") || userRole.contains("ASSET_MANAGER"));
-        if (!isManager) {
-            if (asset.assignedUserId == null || !asset.assignedUserId.equals(userId)) {
-                throw new ForbiddenException("You can only create maintenance tickets for assets assigned to you");
-            }
+        if (asset.assignedUserId == null || !asset.assignedUserId.equals(userId)) {
+            throw new ForbiddenException("You can only create maintenance tickets for assets assigned to you");
+        }
+
+        if (userId == null) {
+            throw new ForbiddenException("Missing requester identity");
         }
 
         MaintenanceTicket ticket = MaintenanceTicket.builder()
@@ -61,6 +69,18 @@ public class MaintenanceServiceImpl implements MaintenanceService {
             assetServiceClient.updateAssetStatus(requestDTO.getAssetId(), "UNDER_MAINTENANCE");
         } catch (Exception e) {
             throw new ConflictException("Failed to update asset status in Asset Service");
+        }
+
+        // Notify reporter that ticket was created.
+        try {
+            notificationServiceClient.notifyMaintenance(
+                    new NotificationServiceClient.NotificationRequest(
+                            userId,
+                            "Maintenance ticket " + savedTicket.getTicketId() + " was created.",
+                            "MAINTENANCE_CREATED"
+                    )
+            );
+        } catch (Exception ignored) {
         }
 
         return mapToDTO(savedTicket);
@@ -90,6 +110,17 @@ public class MaintenanceServiceImpl implements MaintenanceService {
             } catch (Exception e) {
                 // Ignore or log. For now just try.
             }
+        }
+
+        try {
+            notificationServiceClient.notifyMaintenance(
+                    new NotificationServiceClient.NotificationRequest(
+                            ticket.getReportedByUserId(),
+                            "Maintenance ticket " + ticket.getTicketId() + " changed to " + newStatus + ".",
+                            "MAINTENANCE_STATUS_UPDATED"
+                    )
+            );
+        } catch (Exception ignored) {
         }
 
         return mapToDTO(ticketRepository.save(ticket));
