@@ -1,0 +1,408 @@
+{
+  "info": {
+    "name": "Asset Service",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_postman_id": "asset-svc-001"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8082"
+    },
+    {
+      "key": "accessToken",
+      "value": ""
+    }
+  ],
+  "item": [
+    {
+      "name": "Create asset",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{accessToken}}",
+            "type": "text"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/assets",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "assets"
+          ]
+        },
+        "description": "",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"assetTag\": \"LAP-100\",\n  \"name\": \"MacBook Pro 14\",\n  \"category\": \"Laptop\",\n  \"serialNumber\": \"MBP14X1\",\n  \"purchaseCost\": 2399.0,\n  \"location\": \"HQ\"\n}"
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "List assets (page)",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{accessToken}}",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/assets?page=0&size=10&sort=createdAt,desc",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "assets?page=0&size=10&sort=createdAt,desc"
+          ]
+        },
+        "description": ""
+      },
+      "response": []
+    },
+    {
+      "name": "Search assets",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{accessToken}}",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/assets?q=mac&status=AVAILABLE&category=Laptop&page=0&size=10",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "assets?q=mac&status=AVAILABLE&category=Laptop&page=0&size=10"
+          ]
+        },
+        "description": ""
+      },
+      "response": []
+    },
+    {
+      "name": "Get asset by id",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{accessToken}}",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/assets/1",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "assets",
+            "1"
+          ]
+        },
+        "description": ""
+      },
+      "response": []
+    },
+    {
+      "name": "Update asset",
+      "request": {
+        "method": "PUT",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{accessToken}}",
+            "type": "text"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/assets/1",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "assets",
+            "1"
+          ]
+        },
+        "description": "",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"location\": \"Warehouse 2\",\n  \"notes\": \"Relocated\"\n}"
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Change status (legal)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{accessToken}}",
+            "type": "text"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/assets/1/status",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "assets",
+            "1",
+            "status"
+          ]
+        },
+        "description": "",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"status\": \"MAINTENANCE\",\n  \"reason\": \"Battery swap\"\n}"
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Change status (illegal -> 409)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{accessToken}}",
+            "type": "text"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/assets/1/status",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "assets",
+            "1",
+            "status"
+          ]
+        },
+        "description": "",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"status\": \"ASSIGNED\",\n  \"reason\": \"will fail from MAINTENANCE\"\n}"
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Delete asset (admin)",
+      "request": {
+        "method": "DELETE",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{accessToken}}",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/assets/1",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "assets",
+            "1"
+          ]
+        },
+        "description": ""
+      },
+      "response": []
+    },
+    {
+      "name": "Assign asset",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{accessToken}}",
+            "type": "text"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/assignments",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "assignments"
+          ]
+        },
+        "description": "",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"assetId\": 2,\n  \"assigneeUserId\": 3,\n  \"notes\": \"Q2 issue\"\n}"
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Return assignment",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{accessToken}}",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/assignments/1/return",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "assignments",
+            "1",
+            "return"
+          ]
+        },
+        "description": ""
+      },
+      "response": []
+    },
+    {
+      "name": "Asset assignment history",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{accessToken}}",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/assignments/asset/2",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "assignments",
+            "asset",
+            "2"
+          ]
+        },
+        "description": ""
+      },
+      "response": []
+    },
+    {
+      "name": "User active assignments",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{accessToken}}",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/assignments/user/3/active",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "assignments",
+            "user",
+            "3",
+            "active"
+          ]
+        },
+        "description": ""
+      },
+      "response": []
+    },
+    {
+      "name": "CSV import",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{accessToken}}"
+          }
+        ],
+        "body": {
+          "mode": "formdata",
+          "formdata": [
+            {
+              "key": "file",
+              "type": "file",
+              "src": []
+            }
+          ]
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/assets/import",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "assets",
+            "import"
+          ]
+        },
+        "description": "Upload sample-assets.csv from the project root."
+      },
+      "response": []
+    }
+  ]
+}
