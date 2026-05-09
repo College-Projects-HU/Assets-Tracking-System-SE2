@@ -29,8 +29,10 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Plus, Search } from "lucide-react";
+import { useAuth } from "@/lib/auth";
 
 export default function StaffPage() {
+  const { user } = useAuth();
   const [staff, setStaff] = useState<StaffMember[]>([]);
   const [search, setSearch] = useState("");
   const [filterRole, setFilterRole] = useState("ALL");
@@ -125,6 +127,9 @@ export default function StaffPage() {
     const updates = Object.entries(pendingChanges);
     for (const [idStr, changes] of updates) {
       const id = parseInt(idStr);
+      if (user?.id === id) {
+        continue;
+      }
       try {
         if (changes.role) {
           await userService.updateRole(id, changes.role);
@@ -302,6 +307,10 @@ export default function StaffPage() {
           <TableBody>
             {filtered.map((member) => (
               <TableRow key={member.id}>
+                {(() => {
+                  const isSelf = user?.id === member.id;
+                  return (
+                    <>
                 <TableCell className="font-medium">{member.name}</TableCell>
                 <TableCell className="text-muted-foreground">
                   {member.email}
@@ -309,15 +318,17 @@ export default function StaffPage() {
                 <TableCell>
                   <Select
                     value={pendingChanges[member.id]?.role || member.role}
-                    onValueChange={(v) =>
+                    onValueChange={(v) => {
+                      if (isSelf) return;
                       setPendingChanges({
                         ...pendingChanges,
                         [member.id]: {
                           ...pendingChanges[member.id],
                           role: v as UserRole,
                         },
-                      })
-                    }
+                      });
+                    }}
+                    disabled={isSelf}
                   >
                     <SelectTrigger className="h-8 w-[140px] text-xs">
                       <SelectValue />
@@ -353,7 +364,9 @@ export default function StaffPage() {
                   <Button
                     variant="outline"
                     size="sm"
+                    disabled={isSelf}
                     onClick={() => {
+                      if (isSelf) return;
                       const currentStatus =
                         pendingChanges[member.id]?.status || member.status;
                       const newStatus =
@@ -372,7 +385,13 @@ export default function StaffPage() {
                       ? "Deactivate"
                       : "Activate"}
                   </Button>
+                  {isSelf && (
+                    <span className="ml-2 text-xs text-muted-foreground">Current account</span>
+                  )}
                 </TableCell>
+                    </>
+                  );
+                })()}
               </TableRow>
             ))}
           </TableBody>

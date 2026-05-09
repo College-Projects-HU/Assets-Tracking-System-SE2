@@ -68,7 +68,11 @@ export default function AssignmentsPage() {
       })
       .catch((err) => {
         console.error('Assignment failed', err);
-        setError('Failed to create assignment');
+        const backendMessage =
+          err?.response?.data?.message ||
+          err?.response?.data?.error ||
+          err?.message;
+        setError(backendMessage || 'Failed to create assignment');
       })
       .finally(() => setAssigning(false));
   };
@@ -82,7 +86,11 @@ export default function AssignmentsPage() {
       .then(() => loadData())
       .catch((err) => {
         console.error('Return failed', err);
-        setError('Failed to return asset');
+        const backendMessage =
+          err?.response?.data?.message ||
+          err?.response?.data?.error ||
+          err?.message;
+        setError(backendMessage || 'Failed to return asset');
       })
       .finally(() => setReturningId(null));
   };

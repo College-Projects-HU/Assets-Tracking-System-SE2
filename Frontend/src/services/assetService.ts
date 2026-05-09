@@ -9,6 +9,7 @@ export interface CreateAssetRequest extends Omit<BackendAssetRequest, 'location'
   serialNumber: string;
   description: string;
   status: Asset['status'];
+  assignedToId?: number;
 }
 
 const toRequest = (data: CreateAssetRequest): BackendAssetRequest => ({
@@ -35,7 +36,8 @@ const assetService = {
   create: (data: CreateAssetRequest) =>
     api.post<BackendAssetDto>('/assets', toRequest(data)).then(async (response) => {
       const created = mapAssetDto(response.data);
-      if (data.status && data.status !== created.status) {
+      // ASSIGNED is handled by assignment endpoint; do not force status first.
+      if (data.status && data.status !== created.status && data.status !== 'ASSIGNED') {
         const statusRes = await assetService.updateStatus(created.id, data.status);
         return statusRes;
       }
@@ -53,9 +55,11 @@ const assetService = {
       description: data.description ?? '',
       purchaseDate: data.purchaseDate ?? '',
       warrantyExpiry: data.warrantyExpiry ?? '',
+      assignedToId: data.assignedToId,
     })).then(async (response) => {
       const updated = mapAssetDto(response.data);
-      if (data.status && data.status !== updated.status) {
+      // ASSIGNED is handled by assignment endpoint; do not force status first.
+      if (data.status && data.status !== updated.status && data.status !== 'ASSIGNED') {
         return assetService.updateStatus(id, data.status);
       }
       return { ...response, data: updated };

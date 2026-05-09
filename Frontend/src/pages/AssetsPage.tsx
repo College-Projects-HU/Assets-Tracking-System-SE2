@@ -43,6 +43,14 @@ export default function AssetsPage() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingAsset, setEditingAsset] = useState<Asset | null>(null);
   const [form, setForm] = useState(defaultForm);
+  const isFormComplete =
+    !!form.name.trim() &&
+    !!form.type.trim() &&
+    !!form.brand.trim() &&
+    !!form.serialNumber.trim() &&
+    !!form.purchaseDate &&
+    !!form.warrantyExpiry &&
+    (form.status !== 'ASSIGNED' || !!form.assignedToId);
 
   // Employees see only their assigned assets
   const visibleAssets = isManager ? assets : assets.filter(a => a.assignedToId === user?.id);
@@ -89,10 +97,11 @@ export default function AssetsPage() {
             if (assignedUser) {
               try {
                 await assignmentService.create({ assetId: editingAsset.id, userId: assignedUser.id, userName: assignedUser.name, notes: 'Assigned via update' });
-                res.data.assignedTo = assignedUser.name;
-                res.data.assignedToId = assignedUser.id;
+                const fresh = await assetService.getById(editingAsset.id);
+                res.data = fresh.data;
               } catch (e) {
                 console.error('Assignment failed', e);
+                setError('Asset saved, but assignment failed. The asset remains unassigned in database.');
               }
             }
           }
@@ -109,10 +118,11 @@ export default function AssetsPage() {
             if (assignedUser) {
               try {
                 await assignmentService.create({ assetId: res.data.id, userId: assignedUser.id, userName: assignedUser.name, notes: 'Initial assignment' });
-                res.data.assignedTo = assignedUser.name;
-                res.data.assignedToId = assignedUser.id;
+                const fresh = await assetService.getById(res.data.id);
+                res.data = fresh.data;
               } catch (e) {
                 console.error('Assignment failed', e);
+                setError('Asset created, but assignment failed. The asset remains unassigned in database.');
               }
             }
           }
@@ -281,7 +291,7 @@ export default function AssetsPage() {
                     <Label>Description</Label>
                     <Input value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} placeholder="Brief description" />
                   </div>
-                  <Button onClick={handleSave} className="w-full" disabled={saving}>{saving ? 'Saving...' : 'Save Asset'}</Button>
+                  <Button onClick={handleSave} className="w-full" disabled={saving || !isFormComplete}>{saving ? 'Saving...' : 'Save Asset'}</Button>
                 </div>
               </DialogContent>
             </Dialog>

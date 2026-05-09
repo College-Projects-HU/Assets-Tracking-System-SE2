@@ -79,7 +79,8 @@ public class AssignmentServiceImpl implements AssignmentService {
                             "ASSET_ASSIGNED"
                     )
             );
-        } catch (Exception ignored) {
+        } catch (Exception e) {
+            throw new ConflictException("Assignment saved but notification delivery failed");
         }
 
         return mapToDTO(assignment);
@@ -113,7 +114,8 @@ public class AssignmentServiceImpl implements AssignmentService {
                             "ASSET_RETURNED"
                     )
             );
-        } catch (Exception ignored) {
+        } catch (Exception e) {
+            throw new ConflictException("Return saved but notification delivery failed");
         }
 
         return mapToDTO(assignment);

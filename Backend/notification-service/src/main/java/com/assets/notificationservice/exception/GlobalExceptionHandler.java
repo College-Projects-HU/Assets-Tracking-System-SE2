@@ -17,12 +17,11 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(NotificationException.class)
     public ResponseEntity<ApiError> handleNotificationException(NotificationException ex, WebRequest request) {
-        ApiError error = ApiError.builder()
-                .timestamp(LocalDateTime.now())
-                .status(HttpStatus.BAD_REQUEST.value())
-                .message(ex.getMessage())
-                .path(request.getDescription(false).replace("uri=", ""))
-                .build();
+        ApiError error = new ApiError();
+        error.setTimestamp(LocalDateTime.now());
+        error.setStatus(HttpStatus.BAD_REQUEST.value());
+        error.setMessage(ex.getMessage());
+        error.setPath(request.getDescription(false).replace("uri=", ""));
         return new ResponseEntity<>(error, HttpStatus.BAD_REQUEST);
     }
 
@@ -45,12 +44,11 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ApiError> handleGlobalException(Exception ex, WebRequest request) {
-        ApiError error = ApiError.builder()
-                .timestamp(LocalDateTime.now())
-                .status(HttpStatus.INTERNAL_SERVER_ERROR.value())
-                .message("An error occurred: " + ex.getMessage())
-                .path(request.getDescription(false).replace("uri=", ""))
-                .build();
+        ApiError error = new ApiError();
+        error.setTimestamp(LocalDateTime.now());
+        error.setStatus(HttpStatus.INTERNAL_SERVER_ERROR.value());
+        error.setMessage("An error occurred: " + ex.getMessage());
+        error.setPath(request.getDescription(false).replace("uri=", ""));
         return new ResponseEntity<>(error, HttpStatus.INTERNAL_SERVER_ERROR);
     }
 }

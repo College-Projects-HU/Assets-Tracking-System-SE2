@@ -7,6 +7,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.server.ResponseStatusException;
+import org.springframework.http.HttpStatus;
 
 import java.util.List;
 import java.util.Map;
@@ -49,20 +51,43 @@ public class UserController {
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<AuthServiceClient.UserDTO> updateUserRole(
             @PathVariable("id") Long id,
+            @RequestHeader(value = "X-User-Id", required = false) String currentUserId,
             @RequestParam("role") String role) {
+        forbidSelfPrivilegeEdit(currentUserId, id);
         return ResponseEntity.ok(authServiceClient.updateRole(id, role));
     }
 
     @DeleteMapping("/{id}")
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<Void> deleteUser(@PathVariable("id") Long id) {
+    public ResponseEntity<Void> deleteUser(
+            @PathVariable("id") Long id,
+            @RequestHeader(value = "X-User-Id", required = false) String currentUserId) {
+        forbidSelfPrivilegeEdit(currentUserId, id);
         authServiceClient.updateStatus(id, false);
         return ResponseEntity.noContent().build();
     }
 
     @PutMapping("/{id}/activate")
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<AuthServiceClient.UserDTO> activateUser(@PathVariable("id") Long id) {
+    public ResponseEntity<AuthServiceClient.UserDTO> activateUser(
+            @PathVariable("id") Long id,
+            @RequestHeader(value = "X-User-Id", required = false) String currentUserId) {
+        forbidSelfPrivilegeEdit(currentUserId, id);
         return ResponseEntity.ok(authServiceClient.updateStatus(id, true));
+    }
+
+    private void forbidSelfPrivilegeEdit(String currentUserId, Long targetUserId) {
+        if (currentUserId == null || currentUserId.isBlank() || targetUserId == null) {
+            return;
+        }
+        try {
+            if (Long.parseLong(currentUserId.trim()) == targetUserId) {
+                throw new ResponseStatusException(
+                        HttpStatus.FORBIDDEN,
+                        "Admin cannot modify their own role or activation status");
+            }
+        } catch (NumberFormatException ignored) {
+            // Ignore malformed header and defer to existing authorization checks.
+        }
     }
 }

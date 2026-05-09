@@ -1,5 +1,6 @@
 package com.assets.maintenanceservice.service.impl;
 
+import com.assets.maintenanceservice.client.AuthServiceClient;
 import com.assets.maintenanceservice.client.AssetServiceClient;
 import com.assets.maintenanceservice.client.NotificationServiceClient;
 import com.assets.maintenanceservice.dto.MaintenanceNotesDTO;
@@ -19,12 +20,16 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Locale;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
 public class MaintenanceServiceImpl implements MaintenanceService {
 
     private final MaintenanceTicketRepository ticketRepository;
+    private final AuthServiceClient authServiceClient;
     private final AssetServiceClient assetServiceClient;
     private final NotificationServiceClient notificationServiceClient;
 
@@ -80,8 +85,14 @@ public class MaintenanceServiceImpl implements MaintenanceService {
                             "MAINTENANCE_CREATED"
                     )
             );
-        } catch (Exception ignored) {
+        } catch (Exception e) {
+            throw new ConflictException("Ticket created but employee notification delivery failed");
         }
+
+        notifyAllAssetManagersOrThrow(
+                "New maintenance ticket " + savedTicket.getTicketId() + " was created for asset #" + savedTicket.getAssetId() + ".",
+                "MAINTENANCE_NEW_TICKET"
+        );
 
         return mapToDTO(savedTicket);
     }
@@ -120,7 +131,8 @@ public class MaintenanceServiceImpl implements MaintenanceService {
                             "MAINTENANCE_STATUS_UPDATED"
                     )
             );
-        } catch (Exception ignored) {
+        } catch (Exception e) {
+            throw new ConflictException("Ticket status updated but employee notification delivery failed");
         }
 
         return mapToDTO(ticketRepository.save(ticket));
@@ -137,6 +149,18 @@ public class MaintenanceServiceImpl implements MaintenanceService {
 
         if (ticket.getStatus() == MaintenanceStatus.RESOLVED || ticket.getStatus() == MaintenanceStatus.CLOSED) {
             ticket.setResolutionDetails(notesDTO.getNotes());
+        }
+
+        try {
+            notificationServiceClient.notifyMaintenance(
+                    new NotificationServiceClient.NotificationRequest(
+                            ticket.getReportedByUserId(),
+                            "New note added to ticket " + ticket.getTicketId() + ": " + notesDTO.getNotes(),
+                            "MAINTENANCE_NOTE_ADDED"
+                    )
+            );
+        } catch (Exception e) {
+            throw new ConflictException("Ticket note saved but employee notification delivery failed");
         }
 
         return mapToDTO(ticketRepository.save(ticket));
@@ -207,5 +231,44 @@ public class MaintenanceServiceImpl implements MaintenanceService {
                 .resolvedAt(ticket.getResolvedAt())
                 .scheduledDate(ticket.getScheduledDate())
                 .build();
+    }
+
+    private void notifyAllAssetManagersOrThrow(String message, String type) {
+        try {
+            List<Long> managerIds = authServiceClient.getAllUsers().stream()
+                    .filter(user -> Boolean.TRUE.equals(user.enabled))
+                    .filter(user -> user.role != null && user.role.name != null)
+                    .filter(user -> "ROLE_ASSET_MANAGER".equals(user.role.name.trim().toUpperCase(Locale.ROOT)))
+                    .map(user -> user.id)
+                    .filter(id -> id != null)
+                    .distinct()
+                    .collect(Collectors.toList());
+
+            if (managerIds.isEmpty()) {
+                return;
+            }
+
+            boolean deliveredToAtLeastOne = false;
+            for (Long managerId : managerIds) {
+                try {
+                    notificationServiceClient.notifyMaintenance(
+                            new NotificationServiceClient.NotificationRequest(
+                                    managerId,
+                                    message,
+                                    type
+                            )
+                    );
+                    deliveredToAtLeastOne = true;
+                } catch (Exception e) {
+                }
+            }
+            if (!deliveredToAtLeastOne) {
+                throw new ConflictException("Ticket created but manager notification delivery failed");
+            }
+        } catch (ConflictException ex) {
+            throw ex;
+        } catch (Exception e) {
+            throw new ConflictException("Ticket created but manager notification delivery failed");
+        }
     }
 }
