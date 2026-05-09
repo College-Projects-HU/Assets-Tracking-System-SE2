@@ -46,6 +46,8 @@ export default function StaffPage() {
     Record<number, { role?: UserRole; status?: "ACTIVE" | "INACTIVE" }>
   >({});
   const [isApplying, setIsApplying] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [creating, setCreating] = useState(false);
 
   const filtered = staff.filter((s) => {
     const matchSearch =
@@ -55,29 +57,46 @@ export default function StaffPage() {
     return matchSearch && matchRole;
   });
 
-  const handleCreate = () => {
-    authService
-      .register({
-        fullName: form.name,
-        email: form.email,
+  const handleCreate = async () => {
+    setActionError(null);
+    const trimmedName = form.name.trim();
+    const trimmedEmail = form.email.trim();
+    if (!trimmedName || !trimmedEmail || !form.password) {
+      setActionError("Name, email, and password are required.");
+      return;
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedEmail)) {
+      setActionError("Please enter a valid email.");
+      return;
+    }
+    if (form.password.length < 6) {
+      setActionError("Password must be at least 6 characters.");
+      return;
+    }
+    setCreating(true);
+    try {
+      await authService.register({
+        fullName: trimmedName,
+        email: trimmedEmail,
         password: form.password,
         role: form.role,
-      })
-      .then(() => userService.getAll())
-      .then((res) => {
-        setStaff(res.data || []);
-        setDialogOpen(false);
-        setForm({
-          name: "",
-          email: "",
-          password: "",
-          role: "EMPLOYEE",
-          department: "",
-        });
-      })
-      .catch((err) => {
-        console.error("Create user failed", err);
       });
+      const res = await userService.getAll();
+      setStaff(res.data || []);
+      setDialogOpen(false);
+      setForm({
+        name: "",
+        email: "",
+        password: "",
+        role: "EMPLOYEE",
+        department: "",
+      });
+    } catch (err) {
+      console.error("Create user failed", err);
+      setActionError("Failed to create user. Check entered data.");
+    } finally {
+      setCreating(false);
+    }
   };
 
   useEffect(() => {
@@ -99,7 +118,10 @@ export default function StaffPage() {
   }, []);
 
   const handleApplyChanges = async () => {
+    if (!Object.keys(pendingChanges).length) return;
+    if (!window.confirm("Apply all pending role/status changes? This will update or deactivate users.")) return;
     setIsApplying(true);
+    setActionError(null);
     const updates = Object.entries(pendingChanges);
     for (const [idStr, changes] of updates) {
       const id = parseInt(idStr);
@@ -114,6 +136,7 @@ export default function StaffPage() {
         }
       } catch (err) {
         console.error(`Failed to update user ${id}`, err);
+        setActionError(`One or more updates failed. User ID: ${id}`);
       }
     }
 
@@ -123,6 +146,7 @@ export default function StaffPage() {
       setPendingChanges({});
     } catch (err) {
       console.error("Failed to refresh staff", err);
+      setActionError("Changes applied, but failed to refresh users list.");
     } finally {
       setIsApplying(false);
     }
@@ -139,7 +163,7 @@ export default function StaffPage() {
             Manage user accounts and role assignments
           </p>
         </div>
-        <div className="flex items-center gap-3">
+      <div className="flex items-center gap-3">
           {Object.keys(pendingChanges).length > 0 && (
             <Button
               variant="default"
@@ -164,6 +188,7 @@ export default function StaffPage() {
                 </DialogTitle>
               </DialogHeader>
               <div className="space-y-4 mt-2">
+                {actionError && <p className="text-sm text-destructive">{actionError}</p>}
                 <div className="space-y-2">
                   <Label>Full Name</Label>
                   <Input
@@ -227,15 +252,16 @@ export default function StaffPage() {
                 <Button
                   onClick={handleCreate}
                   className="w-full"
-                  disabled={!form.name || !form.email || !form.password}
+                  disabled={creating || !form.name || !form.email || !form.password}
                 >
-                  Create User
+                  {creating ? "Creating..." : "Create User"}
                 </Button>
               </div>
             </DialogContent>
           </Dialog>
         </div>
       </div>
+      {actionError && <div className="text-sm text-destructive">{actionError}</div>}
 
       <div className="flex flex-col sm:flex-row gap-3">
         <div className="relative flex-1">

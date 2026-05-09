@@ -26,6 +26,7 @@ export default function AssetsPage() {
   const [search, setSearch] = useState('');
   const [users, setUsers] = useState<StaffMember[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [deletingId, setDeletingId] = useState<number | null>(null);
 
   useEffect(() => {
     setLoading(true);
@@ -66,6 +67,15 @@ export default function AssetsPage() {
   };
 
   const handleSave = () => {
+    setError(null);
+    if (!form.name.trim() || !form.type.trim() || !form.brand.trim() || !form.serialNumber.trim() || !form.purchaseDate || !form.warrantyExpiry) {
+      setError('Please complete all required fields before saving');
+      return;
+    }
+    if (form.status === 'ASSIGNED' && !form.assignedToId) {
+      setError('Please select the user to assign this asset to');
+      return;
+    }
     const tag = form.assetTag || `HW-${String(assets.length + 1).padStart(3, '0')}`;
     setSaving(true);
     if (editingAsset) {
@@ -112,9 +122,12 @@ export default function AssetsPage() {
   };
 
   const handleDelete = (id: number) => {
+    if (!window.confirm('Delete this asset? This action cannot be undone.')) return;
+    setDeletingId(id);
     assetService.delete(id)
       .then(() => setAssets(assets.filter(a => a.id !== id)))
-      .catch(err => { console.error('Delete failed', err); setError('Failed to delete asset'); });
+      .catch(err => { console.error('Delete failed', err); setError('Failed to delete asset'); })
+      .finally(() => setDeletingId(null));
   };
 
   const exportCSV = () => {
@@ -252,7 +265,7 @@ export default function AssetsPage() {
                     <Label>Description</Label>
                     <Input value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} placeholder="Brief description" />
                   </div>
-                  <Button onClick={handleSave} className="w-full">Save Asset</Button>
+                  <Button onClick={handleSave} className="w-full" disabled={saving}>{saving ? 'Saving...' : 'Save Asset'}</Button>
                 </div>
               </DialogContent>
             </Dialog>
@@ -317,7 +330,7 @@ export default function AssetsPage() {
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-1">
                       <Button variant="ghost" size="icon" onClick={() => openEdit(asset)}><Edit className="w-4 h-4" /></Button>
-                      <Button variant="ghost" size="icon" onClick={() => handleDelete(asset.id)}><Trash2 className="w-4 h-4 text-destructive" /></Button>
+                      <Button variant="ghost" size="icon" onClick={() => handleDelete(asset.id)} disabled={deletingId === asset.id}><Trash2 className="w-4 h-4 text-destructive" /></Button>
                     </div>
                   </TableCell>
                 )}
