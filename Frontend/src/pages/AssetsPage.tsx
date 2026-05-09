@@ -139,7 +139,15 @@ export default function AssetsPage() {
     setDeletingId(id);
     assetService.delete(id)
       .then(() => setAssets(assets.filter(a => a.id !== id)))
-      .catch(err => { console.error('Delete failed', err); setError('Failed to delete asset'); })
+      .catch(err => {
+        console.error('Delete failed', err);
+        const backendMessage = err?.response?.data?.message || err?.response?.data?.error || err?.message;
+        if (err?.response?.status === 409) {
+          setError(backendMessage || 'Asset cannot be deleted while it has assignment records. Return or remove assignments first.');
+        } else {
+          setError(backendMessage || 'Failed to delete asset');
+        }
+      })
       .finally(() => setDeletingId(null));
   };
 

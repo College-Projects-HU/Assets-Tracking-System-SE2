@@ -7,6 +7,7 @@ import com.assets.assetservice.entity.AssetStatus;
 import com.assets.assetservice.exception.ConflictException;
 import com.assets.assetservice.exception.ResourceNotFoundException;
 import com.assets.assetservice.repository.AssetRepository;
+import com.assets.assetservice.repository.AssignmentRepository;
 import com.assets.assetservice.service.AssetService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -24,6 +25,7 @@ import java.util.List;
 public class AssetServiceImpl implements AssetService {
 
     private final AssetRepository assetRepository;
+    private final AssignmentRepository assignmentRepository;
 
     @Override
     @Transactional
@@ -62,6 +64,9 @@ public class AssetServiceImpl implements AssetService {
     @Transactional
     public void deleteAsset(Long id) {
         Asset asset = getAssetEntity(id);
+        if (assignmentRepository.existsByAssetId(id)) {
+            throw new ConflictException("Asset cannot be deleted while it has assignment records. Return or remove assignments first.");
+        }
         assetRepository.delete(asset);
     }
 
