@@ -86,13 +86,19 @@ public class MaintenanceServiceImpl implements MaintenanceService {
                     )
             );
         } catch (Exception e) {
-            throw new ConflictException("Ticket created but employee notification delivery failed");
+            // Log notification failure but don't fail the ticket creation
+            System.err.println("Notification delivery failed for maintenance ticket creation: " + e.getMessage());
         }
 
-        notifyAllAssetManagersOrThrow(
-                "New maintenance ticket " + savedTicket.getTicketId() + " was created for asset #" + savedTicket.getAssetId() + ".",
-                "MAINTENANCE_NEW_TICKET"
-        );
+        try {
+            notifyAllAssetManagers(
+                    "New maintenance ticket " + savedTicket.getTicketId() + " was created for asset #" + savedTicket.getAssetId() + ".",
+                    "MAINTENANCE_NEW_TICKET"
+            );
+        } catch (Exception e) {
+            // Log notification failure but don't fail the ticket creation
+            System.err.println("Manager notification delivery failed for maintenance ticket creation: " + e.getMessage());
+        }
 
         return mapToDTO(savedTicket);
     }
@@ -132,7 +138,8 @@ public class MaintenanceServiceImpl implements MaintenanceService {
                     )
             );
         } catch (Exception e) {
-            throw new ConflictException("Ticket status updated but employee notification delivery failed");
+            // Log notification failure but don't fail the status update
+            System.err.println("Notification delivery failed for maintenance ticket status update: " + e.getMessage());
         }
 
         return mapToDTO(ticketRepository.save(ticket));
@@ -160,7 +167,8 @@ public class MaintenanceServiceImpl implements MaintenanceService {
                     )
             );
         } catch (Exception e) {
-            throw new ConflictException("Ticket note saved but employee notification delivery failed");
+            // Log notification failure but don't fail the note addition
+            System.err.println("Notification delivery failed for maintenance ticket note: " + e.getMessage());
         }
 
         return mapToDTO(ticketRepository.save(ticket));
@@ -233,7 +241,7 @@ public class MaintenanceServiceImpl implements MaintenanceService {
                 .build();
     }
 
-    private void notifyAllAssetManagersOrThrow(String message, String type) {
+    private void notifyAllAssetManagers(String message, String type) {
         try {
             List<Long> managerIds = authServiceClient.getAllUsers().stream()
                     .filter(user -> Boolean.TRUE.equals(user.enabled))
@@ -248,7 +256,6 @@ public class MaintenanceServiceImpl implements MaintenanceService {
                 return;
             }
 
-            boolean deliveredToAtLeastOne = false;
             for (Long managerId : managerIds) {
                 try {
                     notificationServiceClient.notifyMaintenance(
@@ -258,17 +265,14 @@ public class MaintenanceServiceImpl implements MaintenanceService {
                                     type
                             )
                     );
-                    deliveredToAtLeastOne = true;
                 } catch (Exception e) {
+                    // Log individual notification failures but continue
+                    System.err.println("Notification delivery failed for manager " + managerId + ": " + e.getMessage());
                 }
             }
-            if (!deliveredToAtLeastOne) {
-                throw new ConflictException("Ticket created but manager notification delivery failed");
-            }
-        } catch (ConflictException ex) {
-            throw ex;
         } catch (Exception e) {
-            throw new ConflictException("Ticket created but manager notification delivery failed");
+            // Log overall failure but don't throw
+            System.err.println("Failed to notify asset managers: " + e.getMessage());
         }
     }
 }

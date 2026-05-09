@@ -27,6 +27,9 @@ export default function AssignmentsPage() {
     setLoading(true);
     Promise.all([assignmentService.getAll(), assetService.getAll(), userService.getAll()])
       .then(([assignmentRes, assetRes, staffRes]) => {
+        console.log('Loaded assignments:', assignmentRes.data);
+        console.log('Loaded assets:', assetRes.data);
+        console.log('Loaded staff:', staffRes.data);
         setAssignments(assignmentRes.data || []);
         setAssets(assetRes.data || []);
         setStaff(staffRes.data || []);
@@ -34,7 +37,8 @@ export default function AssignmentsPage() {
       })
       .catch((err) => {
         console.error('Load failed', err);
-        setError('Failed to load data');
+        const errorMsg = err?.response?.data?.message || err?.message || 'Failed to load data';
+        setError(errorMsg);
       })
       .finally(() => setLoading(false));
   };
@@ -44,7 +48,16 @@ export default function AssignmentsPage() {
   }, []);
 
   const availableAssets = assets.filter((a) => a.status === 'AVAILABLE');
-  const employees = staff.filter((s) => s.role === 'EMPLOYEE');
+  const employees = staff.filter((s) => {
+    const isEmployee = s.role === 'EMPLOYEE';
+    if (!isEmployee) {
+      console.log('Filtered out user:', s.name, 'role:', s.role);
+    }
+    return isEmployee;
+  });
+  console.log('Available employees:', employees);
+  console.log('Total staff:', staff);
+  console.log('Available assets:', availableAssets);
 
   const handleAssign = () => {
     const asset = assets.find((a) => String(a.id) === selectedAsset);

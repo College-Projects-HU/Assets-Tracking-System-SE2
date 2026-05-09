@@ -80,7 +80,8 @@ public class AssignmentServiceImpl implements AssignmentService {
                     )
             );
         } catch (Exception e) {
-            throw new ConflictException("Assignment saved but notification delivery failed");
+            // Log notification failure but don't fail the assignment
+            System.err.println("Notification delivery failed for asset assignment: " + e.getMessage());
         }
 
         return mapToDTO(assignment);
@@ -115,7 +116,8 @@ public class AssignmentServiceImpl implements AssignmentService {
                     )
             );
         } catch (Exception e) {
-            throw new ConflictException("Return saved but notification delivery failed");
+            // Log notification failure but don't fail the return operation
+            System.err.println("Notification delivery failed for asset return: " + e.getMessage());
         }
 
         return mapToDTO(assignment);
