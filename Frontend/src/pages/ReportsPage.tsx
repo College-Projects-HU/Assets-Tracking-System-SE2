@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Table,
@@ -11,30 +11,25 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import StatusBadge from "@/components/StatusBadge";
 import { Download, Package, AlertTriangle } from "lucide-react";
-import reportService from "@/services/reportService";
+import reportService, { type AuditLogEntry } from "@/services/reportService";
 import assetService from "@/services/assetService";
-import maintenanceService from "@/services/maintenanceService";
 import { useAuth } from "@/lib/auth";
 
 export default function ReportsPage() {
   const { user } = useAuth();
   const isAdmin = user?.role === "ADMIN";
   const [assets, setAssets] = useState<any[]>([]);
-  const [tickets, setTickets] = useState<any[]>([]);
   const [stats, setStats] = useState<any | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [auditEntries, setAuditEntries] = useState<AuditLogEntry[]>([]);
+  const [auditLoading, setAuditLoading] = useState(false);
 
   useEffect(() => {
     setLoading(true);
-    Promise.all([
-      assetService.getAll(),
-      maintenanceService.getAll().catch(() => ({ data: [] })),
-      reportService.getDashboardStats(),
-    ])
-      .then(([aRes, mRes, sRes]) => {
+    Promise.all([assetService.getAll(), reportService.getDashboardStats()])
+      .then(([aRes, sRes]) => {
         setAssets(aRes.data || []);
-        setTickets(mRes.data || []);
         setStats(sRes.data || null);
         setError(null);
       })
@@ -43,7 +38,31 @@ export default function ReportsPage() {
         setError("Failed to load report data from backend");
       })
       .finally(() => setLoading(false));
+    // Fetch audit entries for admin (endpoint requires ADMIN role)
+    if (isAdmin) {
+      setAuditLoading(true);
+      reportService
+        .getAuditLogEntries()
+        .then((res) => setAuditEntries(res.data))
+        .catch(() => setAuditEntries([]))
+        .finally(() => setAuditLoading(false));
+    }
   }, [isAdmin]);
+
+  const ticketAuditEntries = useMemo(
+    () => auditEntries.filter((e) => e.resourceType === "MaintenanceTicket"),
+    [auditEntries],
+  );
+
+  const formatDateTime = (value?: string) => {
+    if (!value) return "—";
+    const d = new Date(value);
+    if (isNaN(d.getTime())) return value;
+    return d.toLocaleString(undefined, {
+      dateStyle: "medium",
+      timeStyle: "short",
+    });
+  };
 
   const warrantyThreshold = new Date();
   warrantyThreshold.setMonth(warrantyThreshold.getMonth() + 3);
@@ -156,84 +175,115 @@ export default function ReportsPage() {
             </TabsContent>
 
             <TabsContent value="maintenance" className="space-y-4">
-              <div className="flex justify-end">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    // client-side export for maintenance tickets
-                    if (!tickets || tickets.length === 0) return;
-                    const rows = tickets.map((t: any) => ({
-                      TicketID: t.ticketId,
-                      Asset: t.assetName,
-                      Priority: t.priority,
-                      Status: t.status,
-                      Reporter: t.reportedBy,
-                      Created: t.createdAt,
-                      Resolved: t.resolvedAt || "",
-                    }));
-                    const headers = Object.keys(rows[0]);
-                    const csv = [
-                      headers.join(","),
-                      ...rows.map((row) =>
-                        headers.map((h) => `"${row[h] ?? ""}"`).join(","),
-                      ),
-                    ].join("\n");
-                    const blob = new Blob([csv], { type: "text/csv" });
-                    const url = URL.createObjectURL(blob);
-                    const a = document.createElement("a");
-                    a.href = url;
-                    a.download = "maintenance_report.csv";
-                    a.click();
-                    URL.revokeObjectURL(url);
-                  }}
-                >
-                  <Download className="w-4 h-4 mr-2" />
-                  Export CSV
-                </Button>
+              <div className="flex items-center justify-between">
+                <p className="text-sm text-muted-foreground">
+                  Audit trail of all maintenance ticket operations
+                </p>
+                {isAdmin && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={ticketAuditEntries.length === 0}
+                    onClick={() => {
+                      const headers = [
+                        "Ticket ID",
+                        "Action",
+                        "Details",
+                        "Performed By",
+                        "Date & Time",
+                      ];
+                      const rows = ticketAuditEntries.map((e) => [
+                        e.resourceId,
+                        e.action,
+                        e.details,
+                        e.actor,
+                        formatDateTime(e.createdAt),
+                      ]);
+                      const csv = [
+                        headers.join(","),
+                        ...rows.map((r) =>
+                          r
+                            .map(
+                              (c) => `"${String(c ?? "").replace(/"/g, '""')}"`,
+                            )
+                            .join(","),
+                        ),
+                      ].join("\n");
+                      const blob = new Blob([csv], { type: "text/csv" });
+                      const url = URL.createObjectURL(blob);
+                      const a = document.createElement("a");
+                      a.href = url;
+                      a.download = "maintenance_audit.csv";
+                      a.click();
+                      URL.revokeObjectURL(url);
+                    }}
+                  >
+                    <Download className="w-4 h-4 mr-2" />
+                    Export CSV
+                  </Button>
+                )}
               </div>
-              <div className="bg-card rounded-xl border shadow-card overflow-hidden">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Ticket</TableHead>
-                      <TableHead>Asset</TableHead>
-                      <TableHead>Issue</TableHead>
-                      <TableHead>Priority</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Created</TableHead>
-                      <TableHead>Resolved</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {tickets.map((t) => (
-                      <TableRow key={t.id}>
-                        <TableCell className="font-mono text-xs">
-                          {t.ticketId}
-                        </TableCell>
-                        <TableCell className="font-medium">
-                          {t.assetName}
-                        </TableCell>
-                        <TableCell className="max-w-[200px] truncate text-muted-foreground">
-                          {t.issueDescription}
-                        </TableCell>
-                        <TableCell>
-                          <StatusBadge status={t.priority} />
-                        </TableCell>
-                        <TableCell>
-                          <StatusBadge status={t.status} />
-                        </TableCell>
-                        <TableCell className="text-muted-foreground">
-                          {t.createdAt}
-                        </TableCell>
-                        <TableCell className="text-muted-foreground">
-                          {t.resolvedAt || "—"}
-                        </TableCell>
+
+              {!isAdmin ? (
+                <div className="bg-card border rounded-xl p-8 text-center text-sm text-muted-foreground">
+                  Maintenance ticket audit trail is available to administrators
+                  only.
+                </div>
+              ) : auditLoading ? (
+                <div className="text-sm text-muted-foreground">
+                  Loading ticket audit trail...
+                </div>
+              ) : (
+                <div className="bg-card rounded-xl border shadow-card overflow-hidden">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="w-36">Ticket ID</TableHead>
+                        <TableHead className="w-32">Action</TableHead>
+                        <TableHead>Details</TableHead>
+                        <TableHead className="w-44">Performed By</TableHead>
+                        <TableHead className="w-40">Date & Time</TableHead>
                       </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
+                    </TableHeader>
+                    <TableBody>
+                      {ticketAuditEntries.length === 0 ? (
+                        <TableRow>
+                          <TableCell
+                            colSpan={5}
+                            className="text-center py-10 text-muted-foreground"
+                          >
+                            No maintenance ticket audit entries yet. Entries are
+                            recorded automatically when tickets are created or
+                            updated.
+                          </TableCell>
+                        </TableRow>
+                      ) : (
+                        ticketAuditEntries.map((e) => (
+                          <TableRow key={e.id}>
+                            <TableCell className="font-mono text-xs">
+                              {e.resourceId || "—"}
+                            </TableCell>
+                            <TableCell>
+                              <StatusBadge status={e.action} />
+                            </TableCell>
+                            <TableCell className="text-sm text-muted-foreground max-w-xs">
+                              <span className="line-clamp-2" title={e.details}>
+                                {e.details || "—"}
+                              </span>
+                            </TableCell>
+                            <TableCell className="text-sm text-muted-foreground">
+                              {e.actor}
+                            </TableCell>
+                            <TableCell className="text-sm text-muted-foreground whitespace-nowrap">
+                              {formatDateTime(e.createdAt)}
+                            </TableCell>
+                          </TableRow>
+                        ))
+                      )}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
             </TabsContent>
 
             <TabsContent value="warranty" className="space-y-4">

@@ -85,7 +85,12 @@ public class LoggingAspect {
 
     private String getCurrentActor() {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        return auth != null && auth.getName() != null ? auth.getName() : "anonymous";
+        if (auth == null || auth.getName() == null || auth.getName().isBlank()
+                || "anonymousUser".equalsIgnoreCase(auth.getName())
+                || "anonymous".equalsIgnoreCase(auth.getName())) {
+            return "System";
+        }
+        return auth.getName();
     }
 
     private String getActionLabel(String methodName) {
@@ -143,21 +148,72 @@ public class LoggingAspect {
     private String buildDetails(JoinPoint joinPoint, Object result) {
         String methodName = joinPoint.getSignature().getName();
         Object[] args = joinPoint.getArgs();
-        if (methodName.equals("bulkImportAssets") && args.length > 0) {
-            Object first = args[0];
-            if (first != null) {
-                return "Imported file: " + first.toString();
+        Object body = null;
+        if (result instanceof ResponseEntity<?>) {
+            body = ((ResponseEntity<?>) result).getBody();
+        }
+
+        if ("createAsset".equals(methodName)) {
+            String name     = getStr(body, "getName");
+            String category = getStr(body, "getCategory");
+            String location = getStr(body, "getLocation");
+            return "Asset '" + nvl(name) + "' (" + nvl(category) + ")"
+                    + (location != null ? " at " + location : "") + " added to inventory.";
+        }
+        if ("updateAsset".equals(methodName)) {
+            String name     = getStr(body, "getName");
+            String category = getStr(body, "getCategory");
+            String status   = getStr(body, "getStatus");
+            return "Asset '" + nvl(name) + "' (" + nvl(category) + ") updated. Status: " + nvl(status) + ".";
+        }
+        if ("deleteAsset".equals(methodName)) {
+            return "Asset ID " + (args.length > 0 ? args[0] : "?") + " permanently deleted.";
+        }
+        if ("updateAssetStatus".equals(methodName)) {
+            Object id     = args.length > 0 ? args[0] : "?";
+            Object status = args.length > 1 ? args[1] : "?";
+            String name   = getStr(body, "getName");
+            return "Asset" + (name != null ? " '" + name + "'" : " ID " + id)
+                    + " status changed to " + status + ".";
+        }
+        if ("bulkImportAssets".equals(methodName)) {
+            if (body instanceof java.util.Map) {
+                java.util.Map<?, ?> m = (java.util.Map<?, ?>) body;
+                Object imported = m.get("imported");
+                Object failed   = m.get("failed");
+                return "Bulk import: " + (imported != null ? imported : "?") + " assets imported"
+                        + (failed != null && !Integer.valueOf(0).equals(failed) ? ", " + failed + " failed" : "") + ".";
             }
+            return "Bulk asset import completed.";
         }
-        if (methodName.equals("assignAsset") && args.length > 0) {
-            return "Assignment details: " + args[0].toString();
+        if ("assignAsset".equals(methodName)) {
+            String assetId   = getStr(body, "getAssetId");
+            String assetName = getStr(body, "getAssetName");
+            String userName  = getStr(body, "getUserName");
+            return "Asset" + (assetName != null ? " '" + assetName + "'" : " ID " + nvl(assetId))
+                    + " assigned to " + nvl(userName) + ".";
         }
-        if (methodName.equals("returnAsset") && args.length > 0) {
-            return "Returned assignment id: " + args[0];
+        if ("returnAsset".equals(methodName)) {
+            String assetId   = getStr(body, "getAssetId");
+            String assetName = getStr(body, "getAssetName");
+            String userName  = getStr(body, "getUserName");
+            return "Asset" + (assetName != null ? " '" + assetName + "'" : " ID " + nvl(assetId))
+                    + " returned" + (userName != null ? " from " + userName : "") + ".";
         }
-        if (args != null && args.length > 0) {
-            return "Arguments: " + Arrays.toString(args);
+        return methodName + " completed.";
+    }
+
+    private String getStr(Object obj, String getter) {
+        if (obj == null) return null;
+        try {
+            Object val = obj.getClass().getMethod(getter).invoke(obj);
+            return val != null ? val.toString() : null;
+        } catch (Exception ignored) {
+            return null;
         }
-        return "Operation completed.";
+    }
+
+    private String nvl(String value) {
+        return value != null ? value : "unknown";
     }
 }

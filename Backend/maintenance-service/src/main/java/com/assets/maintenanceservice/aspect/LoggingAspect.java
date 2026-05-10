@@ -64,14 +64,14 @@ public class LoggingAspect {
     public Object logAround(ProceedingJoinPoint joinPoint) throws Throwable {
         String methodName = joinPoint.getSignature().getDeclaringType().getSimpleName() + "." + joinPoint.getSignature().getName();
         Object[] args = joinPoint.getArgs();
-        
+
         log.info("[{}] START | params: {}", methodName, Arrays.toString(args));
-        
+
         long start = System.currentTimeMillis();
         try {
             Object result = joinPoint.proceed();
             long duration = System.currentTimeMillis() - start;
-            
+
             log.info("[{}] END | returned: {} | duration: {}ms", methodName, result, duration);
             return result;
         } catch (IllegalArgumentException e) {
@@ -85,7 +85,12 @@ public class LoggingAspect {
 
     private String getCurrentActor() {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        return auth != null && auth.getName() != null ? auth.getName() : "anonymous";
+        if (auth == null || auth.getName() == null || auth.getName().isBlank()
+                || "anonymousUser".equalsIgnoreCase(auth.getName())
+                || "anonymous".equalsIgnoreCase(auth.getName())) {
+            return "System";
+        }
+        return auth.getName();
     }
 
     private String getActionLabel(String methodName) {
@@ -133,18 +138,52 @@ public class LoggingAspect {
     private String buildDetails(JoinPoint joinPoint, Object result) {
         String methodName = joinPoint.getSignature().getName();
         Object[] args = joinPoint.getArgs();
-        if (methodName.equals("createTicket") && args.length > 0) {
-            return "New maintenance ticket created with request: " + args[0];
+        Object body = null;
+        if (result instanceof ResponseEntity<?>) {
+            body = ((ResponseEntity<?>) result).getBody();
         }
-        if (methodName.equals("updateTicketStatus") && args.length > 0) {
-            return "Updated ticket " + args[0] + " status.";
+
+        if ("createTicket".equals(methodName)) {
+            String ticketId   = getStr(body, "getTicketId");
+            String assetId    = getStr(body, "getAssetId");
+            String desc       = getStr(body, "getDescription");
+            String priority   = getStr(body, "getPriority");
+            return "Ticket " + nvl(ticketId) + " created for asset ID " + nvl(assetId)
+                    + ": '" + truncate(desc, 80) + "' [Priority: " + nvl(priority) + "].";
         }
-        if (methodName.equals("addNotes") && args.length > 0) {
-            return "Added notes to ticket " + args[0] + ".";
+        if ("updateTicketStatus".equals(methodName)) {
+            Object id     = args.length > 0 ? args[0] : "?";
+            Object status = args.length > 1 ? args[1] : "?";
+            String ticketId   = getStr(body, "getTicketId");
+            return "Ticket " + (ticketId != null ? ticketId : "ID " + id)
+                    + " status changed to " + status + ".";
         }
-        if (args != null && args.length > 0) {
-            return "Arguments: " + Arrays.toString(args);
+        if ("addNotes".equals(methodName)) {
+            Object id       = args.length > 0 ? args[0] : "?";
+            String ticketId = getStr(body, "getTicketId");
+            String notes    = (args.length > 1 && args[1] != null) ? getStr(args[1], "getNotes") : null;
+            return "Notes added to ticket " + (ticketId != null ? ticketId : "ID " + id)
+                    + (notes != null ? ": '" + truncate(notes, 80) + "'" : "") + ".";
         }
-        return "Maintenance action completed.";
+        return methodName + " completed.";
+    }
+
+    private String truncate(String s, int max) {
+        if (s == null) return "";
+        return s.length() > max ? s.substring(0, max) + "..." : s;
+    }
+
+    private String getStr(Object obj, String getter) {
+        if (obj == null) return null;
+        try {
+            Object val = obj.getClass().getMethod(getter).invoke(obj);
+            return val != null ? val.toString() : null;
+        } catch (Exception ignored) {
+            return null;
+        }
+    }
+
+    private String nvl(String value) {
+        return value != null ? value : "unknown";
     }
 }
