@@ -40,4 +40,15 @@ public class AssignmentController {
             @PageableDefault(size = 20) Pageable pageable) {
         return ResponseEntity.ok(assignmentService.getAllAssignments(userId, status, pageable));
     }
+
+    /**
+     * Internal endpoint — called by report-service via Feign (no gateway, no auth headers).
+     * Returns all active (ACTIVE status) assignments for dashboard stats.
+     */
+    @GetMapping("/internal/assignments/active")
+    public ResponseEntity<java.util.List<AssignmentDTO>> getActiveAssignmentsInternal() {
+        return ResponseEntity.ok(
+                assignmentService.getAllAssignments(null, "ACTIVE", Pageable.unpaged()).getContent()
+        );
+    }
 }

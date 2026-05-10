@@ -85,4 +85,27 @@ public class MaintenanceController {
             @PageableDefault(size = 20, sort = "scheduledDate") Pageable pageable) {
         return ResponseEntity.ok(maintenanceService.getUpcomingMaintenance(pageable));
     }
+
+    /**
+     * Internal endpoint — called by report-service via Feign (no gateway, no auth headers).
+     * Returns a lightweight summary of all tickets for cost/category reporting.
+     */
+    @GetMapping("/internal/maintenances")
+    public ResponseEntity<java.util.List<java.util.Map<String, Object>>> getAllInternalMaintenances() {
+        java.util.List<java.util.Map<String, Object>> result = maintenanceService
+                .getAllTickets(org.springframework.data.domain.Pageable.unpaged())
+                .getContent()
+                .stream()
+                .map(t -> {
+                    java.util.Map<String, Object> m = new java.util.HashMap<>();
+                    m.put("id", t.getId());
+                    m.put("assetId", t.getAssetId());
+                    m.put("cost", t.getCost() != null ? t.getCost() : 0.0);
+                    // Use priority as category since tickets have no separate category field
+                    m.put("category", t.getPriority() != null ? t.getPriority().name() : "UNKNOWN");
+                    return m;
+                })
+                .collect(java.util.stream.Collectors.toList());
+        return ResponseEntity.ok(result);
+    }
 }

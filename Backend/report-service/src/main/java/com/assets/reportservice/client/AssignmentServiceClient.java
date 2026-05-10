@@ -4,7 +4,7 @@ import org.springframework.cloud.openfeign.FeignClient;
 import org.springframework.web.bind.annotation.GetMapping;
 import java.util.List;
 
-@FeignClient(name = "assignment-service", url = "${feign.assignment-service.url:http://localhost:8087}")
+@FeignClient(name = "asset-service", contextId = "assignmentServiceClient")
 public interface AssignmentServiceClient {
 
     @GetMapping("/api/internal/assignments/active")
@@ -13,17 +13,18 @@ public interface AssignmentServiceClient {
     class AssignmentDTO {
         public Long id;
         public Long assetId;
-        public Long assigneeId;
-        public String assigneeName;
+        // Field names match the JSON produced by asset-service's AssignmentDTO
+        public Long userId;
+        public String userName;
         public String status;
 
         public AssignmentDTO() {}
 
-        public AssignmentDTO(Long id, Long assetId, Long assigneeId, String assigneeName, String status) {
+        public AssignmentDTO(Long id, Long assetId, Long userId, String userName, String status) {
             this.id = id;
             this.assetId = assetId;
-            this.assigneeId = assigneeId;
-            this.assigneeName = assigneeName;
+            this.userId = userId;
+            this.userName = userName;
             this.status = status;
         }
     }

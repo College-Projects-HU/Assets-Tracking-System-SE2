@@ -66,7 +66,7 @@ public class ReportService {
 
         // Active assignments: map to DTO
         List<AssignmentDTO> activeAssignments = assignments.stream()
-                .map(a -> new AssignmentDTO(a.id, a.assetId, a.assigneeId, a.assigneeName, a.status))
+                .map(a -> new AssignmentDTO(a.id, a.assetId, a.userId, a.userName, a.status))
                 .collect(Collectors.toList());
 
         // Maintenance costs

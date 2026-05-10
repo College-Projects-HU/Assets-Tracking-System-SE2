@@ -4,7 +4,7 @@ import org.springframework.cloud.openfeign.FeignClient;
 import org.springframework.web.bind.annotation.GetMapping;
 import java.util.List;
 
-@FeignClient(name = "maintenance-service", url = "${feign.maintenance-service.url:http://localhost:8085}")
+@FeignClient(name = "maintenance-service")
 public interface MaintenanceServiceClient {
 
     @GetMapping("/api/internal/maintenances")
