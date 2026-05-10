@@ -1,52 +1,63 @@
-import { useEffect, useState, useRef } from 'react';
-import notificationService, { NotificationItem } from '@/services/notificationService';
+import { useState, useEffect, useCallback } from "react";
+import notificationService, {
+  type NotificationItem,
+} from "@/services/notificationService";
+import { useAuth } from "@/lib/auth";
 
-export default function useNotifications(pollInterval = 10000) {
+const POLL_MS = 30_000; // poll every 30 seconds
+
+export function useNotifications() {
+  const { user } = useAuth();
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const timerRef = useRef<number | null>(null);
 
-  const fetch = async () => {
-    setLoading(true);
+  const fetch = useCallback(async () => {
+    if (!user) return;
     try {
       const res = await notificationService.getAll();
-      setNotifications(res.data || []);
-      setError(null);
-    } catch (err: any) {
-      console.warn('Failed to fetch notifications', err);
-      setError('Failed to fetch notifications');
-    } finally {
-      setLoading(false);
+      // Sort newest first
+      setNotifications(
+        (res.data || []).sort(
+          (a, b) =>
+            new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+        ),
+      );
+    } catch {
+      // fail silently — never crash the sidebar
     }
-  };
+  }, [user]);
 
+  // Initial fetch + polling
   useEffect(() => {
     fetch();
-    timerRef.current = window.setInterval(fetch, pollInterval);
-    return () => { if (timerRef.current) window.clearInterval(timerRef.current); };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pollInterval]);
+    const id = setInterval(fetch, POLL_MS);
+    return () => clearInterval(id);
+  }, [fetch]);
 
-  const markRead = async (id: number) => {
+  const markRead = useCallback(async (id: number) => {
     try {
       await notificationService.markRead(id);
-      setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n));
-    } catch (err) {
-      console.warn('Failed to mark notification read', err);
+      setNotifications((prev) =>
+        prev.map((n) => (n.id === id ? { ...n, read: true } : n)),
+      );
+    } catch {
+      // ignore
     }
+  }, []);
+
+  const markAllRead = useCallback(async () => {
+    const unread = notifications.filter((n) => !n.read);
+    if (unread.length === 0) return;
+    await Promise.allSettled(
+      unread.map((n) => notificationService.markRead(n.id)),
+    );
+    setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+  }, [notifications]);
+
+  return {
+    notifications,
+    unreadCount: notifications.filter((n) => !n.read).length,
+    markRead,
+    markAllRead,
+    refetch: fetch,
   };
-
-  const markAllRead = async () => {
-    try {
-      await notificationService.markAllRead();
-      setNotifications(prev => prev.map(n => ({ ...n, read: true })));
-    } catch (err) {
-      console.warn('Failed to mark all read', err);
-    }
-  };
-
-  const unreadCount = notifications.filter(n => !n.read).length;
-
-  return { notifications, loading, error, unreadCount, markRead, markAllRead, refresh: fetch };
 }
