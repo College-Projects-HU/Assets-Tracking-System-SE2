@@ -151,6 +151,17 @@ public class ReportService {
         return new PageImpl<>(content, pageable, entries.getTotalElements());
     }
 
+    public AuditLogDTO saveAuditLog(AuditLogDTO dto) {
+        AuditLogEntry entry = new AuditLogEntry();
+        entry.setActor(dto.actor != null ? dto.actor : "unknown");
+        entry.setAction(dto.action != null ? dto.action : "UNKNOWN");
+        entry.setDetails(dto.details != null ? dto.details : "");
+        entry.setResourceType(dto.resourceType != null ? dto.resourceType : "UNKNOWN");
+        entry.setResourceId(dto.resourceId);
+        AuditLogEntry saved = auditLogRepository.save(entry);
+        return toAuditLogDTO(saved);
+    }
+
     private ResponseEntity<StreamingResponseBody> csvResponse(String filename, StreamingResponseBody body) {
         return ResponseEntity.ok()
                 .contentType(new MediaType("text", "csv", StandardCharsets.UTF_8))

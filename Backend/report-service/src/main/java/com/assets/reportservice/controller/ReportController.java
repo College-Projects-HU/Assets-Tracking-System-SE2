@@ -6,6 +6,8 @@ import com.assets.reportservice.service.ReportService;
 import org.springframework.data.domain.Page;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -95,5 +97,10 @@ public class ReportController {
             @RequestParam(name = "page", defaultValue = "0") int page,
             @RequestParam(name = "size", defaultValue = "1000") int size) {
         return reportService.streamAuditLogCsv(startDate, endDate, actor, page, size);
+    }
+
+    @PostMapping("/audit-log")
+    public ResponseEntity<AuditLogDTO> createAuditLog(@RequestBody AuditLogDTO auditLogDTO) {
+        return ResponseEntity.ok(reportService.saveAuditLog(auditLogDTO));
     }
 }
