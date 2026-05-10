@@ -200,9 +200,7 @@ export default function AssetsPage() {
           <h1 className="text-2xl font-display font-bold">Asset Inventory</h1>
           <p className="text-muted-foreground text-sm mt-1">{isManager ? "Manage your organization's IT assets" : 'View your assigned assets'}</p>
         </div>
-        {error && <div className="text-sm text-destructive">{error}</div>}
-        {loading && <div className="text-sm text-muted-foreground">Loading assets...</div>}
-        {!loading && !error && (
+        {!loading && (
         <div className="flex gap-2">
           {isManager && <Button variant="outline" onClick={exportCSV}><Download className="w-4 h-4 mr-2" />Export CSV</Button>}
           {isManager && (
@@ -307,6 +305,21 @@ export default function AssetsPage() {
         </div>
         )}
       </div>
+
+      {/* Error Message - Moved away from action buttons */}
+      {error && (
+        <div className="bg-destructive/10 border border-destructive/20 rounded-lg p-4">
+          <div className="text-sm text-destructive font-medium">Error</div>
+          <div className="text-sm text-destructive/80 mt-1">{error}</div>
+        </div>
+      )}
+
+      {/* Loading Message */}
+      {loading && (
+        <div className="bg-muted/50 border border-muted rounded-lg p-4">
+          <div className="text-sm text-muted-foreground">Loading assets...</div>
+        </div>
+      )}
 
       {/* Filters */}
       <div className="flex flex-col sm:flex-row gap-3">
