@@ -41,9 +41,7 @@ export default function StaffPage() {
     name: "",
     email: "",
     password: "",
-    role: "EMPLOYEE" as UserRole,
-    department: "",
-  });
+    role: "EMPLOYEE" as UserRole  });
   const [pendingChanges, setPendingChanges] = useState<
     Record<number, { role?: UserRole; status?: "ACTIVE" | "INACTIVE" }>
   >({});
@@ -90,8 +88,7 @@ export default function StaffPage() {
         name: "",
         email: "",
         password: "",
-        role: "EMPLOYEE",
-        department: "",
+        role: "EMPLOYEE"
       });
     } catch (err) {
       console.error("Create user failed", err);
@@ -244,16 +241,7 @@ export default function StaffPage() {
                     </SelectContent>
                   </Select>
                 </div>
-                <div className="space-y-2">
-                  <Label>Department</Label>
-                  <Input
-                    value={form.department}
-                    onChange={(e) =>
-                      setForm({ ...form, department: e.target.value })
-                    }
-                    placeholder="e.g. IT, Engineering"
-                  />
-                </div>
+                
                 <Button
                   onClick={handleCreate}
                   className="w-full"
@@ -298,7 +286,6 @@ export default function StaffPage() {
               <TableHead>Name</TableHead>
               <TableHead>Email</TableHead>
               <TableHead>Role</TableHead>
-              <TableHead>Department</TableHead>
               <TableHead>Assets</TableHead>
               <TableHead>Status</TableHead>
               <TableHead className="text-right">Actions</TableHead>
@@ -342,9 +329,7 @@ export default function StaffPage() {
                     </SelectContent>
                   </Select>
                 </TableCell>
-                <TableCell className="text-muted-foreground">
-                  {member.department}
-                </TableCell>
+                
                 <TableCell className="text-muted-foreground">
                   {member.assetsCount}
                 </TableCell>

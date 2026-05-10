@@ -22,6 +22,8 @@ export default function AssetsPage() {
   const [assets, setAssets] = useState<Asset[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [importing, setImporting] = useState(false);
+  const [importSummary, setImportSummary] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [search, setSearch] = useState('');
   const [users, setUsers] = useState<StaffMember[]>([]);
@@ -165,11 +167,11 @@ export default function AssetsPage() {
   const handleBulkImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    const validExtensions = ['.csv', '.xlsx'];
+    const validExtensions = ['.csv'];
     const fileName = file.name.toLowerCase();
     const hasValidExtension = validExtensions.some(ext => fileName.endsWith(ext));
     if (!hasValidExtension) {
-      setError('Invalid file type. Please upload a CSV or XLSX file.');
+      setError('Invalid file type. Please upload a CSV file.');
       if (fileInputRef.current) fileInputRef.current.value = '';
       return;
     }
@@ -178,17 +180,23 @@ export default function AssetsPage() {
       if (fileInputRef.current) fileInputRef.current.value = '';
       return;
     }
-    setLoading(true);
+    setError(null);
+    setImportSummary(null);
+    setImporting(true);
     try {
-      await assetService.bulkImport(file);
+      const response = await assetService.bulkImport(file);
       const res = await assetService.getAll();
       setAssets(res.data || []);
-      setError(null);
+      const summary = response.data;
+      setImportSummary(
+        `Imported ${summary.inserted} of ${summary.total} rows. ${summary.skipped} row(s) skipped.`
+      );
     } catch (err) {
       console.error('Bulk import failed', err);
-      setError('Bulk import failed. Please check the file format.');
+      const backendMessage = err?.response?.data?.message || err?.response?.data?.error || err?.message;
+      setError(backendMessage || 'Bulk import failed. Please check the file format.');
     } finally {
-      setLoading(false);
+      setImporting(false);
       if (fileInputRef.current) fileInputRef.current.value = '';
     }
   };
@@ -205,12 +213,23 @@ export default function AssetsPage() {
           {isManager && <Button variant="outline" onClick={exportCSV}><Download className="w-4 h-4 mr-2" />Export CSV</Button>}
           {isManager && (
             <>
-              <input type="file" ref={fileInputRef} className="hidden" accept=".csv,.xlsx" onChange={handleBulkImport} />
-              <Button variant="outline" onClick={() => fileInputRef.current?.click()}>
-                <Upload className="w-4 h-4 mr-2" />Import Assets
+              <input type="file" ref={fileInputRef} className="hidden" accept=".csv" onChange={handleBulkImport} />
+              <Button variant="outline" onClick={() => fileInputRef.current?.click()} disabled={importing}>
+                <Upload className="w-4 h-4 mr-2" />{importing ? 'Importing...' : 'Import Assets'}
               </Button>
             </>
           )}
+          {importSummary && (
+            <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm text-slate-700">
+              {importSummary}
+            </div>
+          )}
+          {importing && (
+            <div className="rounded-lg border border-blue-200 bg-blue-50 p-3 text-sm text-blue-700 animate-pulse">
+              Importing assets. This may take a few seconds.
+            </div>
+          )}
+          
           {isManager && (
             <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
               <DialogTrigger asChild>
