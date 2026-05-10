@@ -1,0 +1,278 @@
+package com.assets.maintenanceservice.service.impl;
+
+import com.assets.maintenanceservice.client.AuthServiceClient;
+import com.assets.maintenanceservice.client.AssetServiceClient;
+import com.assets.maintenanceservice.client.NotificationServiceClient;
+import com.assets.maintenanceservice.dto.MaintenanceNotesDTO;
+import com.assets.maintenanceservice.dto.MaintenanceTicketDTO;
+import com.assets.maintenanceservice.dto.MaintenanceTicketRequestDTO;
+import com.assets.maintenanceservice.entity.MaintenanceStatus;
+import com.assets.maintenanceservice.entity.MaintenanceTicket;
+import com.assets.maintenanceservice.exception.ConflictException;
+import com.assets.maintenanceservice.exception.ForbiddenException;
+import com.assets.maintenanceservice.exception.ResourceNotFoundException;
+import com.assets.maintenanceservice.repository.MaintenanceTicketRepository;
+import com.assets.maintenanceservice.service.MaintenanceService;
+import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Locale;
+import java.util.stream.Collectors;
+
+@Service
+@RequiredArgsConstructor
+public class MaintenanceServiceImpl implements MaintenanceService {
+
+    private final MaintenanceTicketRepository ticketRepository;
+    private final AuthServiceClient authServiceClient;
+    private final AssetServiceClient assetServiceClient;
+    private final NotificationServiceClient notificationServiceClient;
+
+    @Override
+    @Transactional
+    public MaintenanceTicketDTO createTicket(MaintenanceTicketRequestDTO requestDTO, Long userId, String userRole) {
+        String normalizedRole = userRole == null ? "" : userRole.toUpperCase().replace("ROLE_", "");
+        if (!"EMPLOYEE".equals(normalizedRole)) {
+            throw new ForbiddenException("Only employees can create maintenance tickets");
+        }
+
+        // Validate asset via Feign
+        AssetServiceClient.AssetDTO asset;
+        try {
+            asset = assetServiceClient.getAssetById(requestDTO.getAssetId());
+        } catch (Exception e) {
+            throw new ResourceNotFoundException("Asset not found or Asset Service is down");
+        }
+
+        // Validate asset belongs to requesting user or user is ADMIN/ASSET_MANAGER
+        if (asset.assignedUserId == null || !asset.assignedUserId.equals(userId)) {
+            throw new ForbiddenException("You can only create maintenance tickets for assets assigned to you");
+        }
+
+        if (userId == null) {
+            throw new ForbiddenException("Missing requester identity");
+        }
+
+        MaintenanceTicket ticket = MaintenanceTicket.builder()
+                .assetId(requestDTO.getAssetId())
+                .reportedByUserId(userId)
+                .status(MaintenanceStatus.OPEN)
+                .priority(requestDTO.getPriority())
+                .description(requestDTO.getDescription())
+                .scheduledDate(requestDTO.getScheduledDate())
+                .build();
+
+        MaintenanceTicket savedTicket = ticketRepository.save(ticket);
+
+        // Update asset status
+        try {
+            assetServiceClient.updateAssetStatus(requestDTO.getAssetId(), "UNDER_MAINTENANCE");
+        } catch (Exception e) {
+            throw new ConflictException("Failed to update asset status in Asset Service");
+        }
+
+        // Notify reporter that ticket was created.
+        try {
+            notificationServiceClient.notifyMaintenance(
+                    new NotificationServiceClient.NotificationRequest(
+                            userId,
+                            "Maintenance ticket " + savedTicket.getTicketId() + " was created.",
+                            "MAINTENANCE_CREATED"
+                    )
+            );
+        } catch (Exception e) {
+            // Log notification failure but don't fail the ticket creation
+            System.err.println("Notification delivery failed for maintenance ticket creation: " + e.getMessage());
+        }
+
+        try {
+            notifyAllAssetManagers(
+                    "New maintenance ticket " + savedTicket.getTicketId() + " was created for asset #" + savedTicket.getAssetId() + ".",
+                    "MAINTENANCE_NEW_TICKET"
+            );
+        } catch (Exception e) {
+            // Log notification failure but don't fail the ticket creation
+            System.err.println("Manager notification delivery failed for maintenance ticket creation: " + e.getMessage());
+        }
+
+        return mapToDTO(savedTicket);
+    }
+
+    @Override
+    @Transactional
+    public MaintenanceTicketDTO updateTicketStatus(Long id, String statusStr) {
+        MaintenanceTicket ticket = ticketRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Maintenance ticket not found with id: " + id));
+
+        MaintenanceStatus newStatus;
+        try {
+            newStatus = MaintenanceStatus.valueOf(statusStr.toUpperCase());
+        } catch (IllegalArgumentException e) {
+            throw new ConflictException("Invalid status: " + statusStr);
+        }
+
+        validateStatusTransition(ticket.getStatus(), newStatus);
+        ticket.setStatus(newStatus);
+
+        if (newStatus == MaintenanceStatus.RESOLVED) {
+            ticket.setResolvedAt(LocalDateTime.now());
+            // Update asset status back to AVAILABLE
+            try {
+                assetServiceClient.updateAssetStatus(ticket.getAssetId(), "AVAILABLE");
+            } catch (Exception e) {
+                // Ignore or log. For now just try.
+            }
+        }
+
+        try {
+            notificationServiceClient.notifyMaintenance(
+                    new NotificationServiceClient.NotificationRequest(
+                            ticket.getReportedByUserId(),
+                            "Maintenance ticket " + ticket.getTicketId() + " changed to " + newStatus + ".",
+                            "MAINTENANCE_STATUS_UPDATED"
+                    )
+            );
+        } catch (Exception e) {
+            // Log notification failure but don't fail the status update
+            System.err.println("Notification delivery failed for maintenance ticket status update: " + e.getMessage());
+        }
+
+        return mapToDTO(ticketRepository.save(ticket));
+    }
+
+    @Override
+    @Transactional
+    public MaintenanceTicketDTO addNotes(Long id, MaintenanceNotesDTO notesDTO) {
+        MaintenanceTicket ticket = ticketRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Maintenance ticket not found with id: " + id));
+
+        String existingNotes = ticket.getNotes() != null ? ticket.getNotes() + "\n" : "";
+        ticket.setNotes(existingNotes + "- " + notesDTO.getNotes());
+
+        if (ticket.getStatus() == MaintenanceStatus.RESOLVED || ticket.getStatus() == MaintenanceStatus.CLOSED) {
+            ticket.setResolutionDetails(notesDTO.getNotes());
+        }
+
+        try {
+            notificationServiceClient.notifyMaintenance(
+                    new NotificationServiceClient.NotificationRequest(
+                            ticket.getReportedByUserId(),
+                            "New note added to ticket " + ticket.getTicketId() + ": " + notesDTO.getNotes(),
+                            "MAINTENANCE_NOTE_ADDED"
+                    )
+            );
+        } catch (Exception e) {
+            // Log notification failure but don't fail the note addition
+            System.err.println("Notification delivery failed for maintenance ticket note: " + e.getMessage());
+        }
+
+        return mapToDTO(ticketRepository.save(ticket));
+    }
+
+    @Override
+    public Page<MaintenanceTicketDTO> getAllTickets(Pageable pageable) {
+        return ticketRepository.findAll(pageable).map(this::mapToDTO);
+    }
+
+    @Override
+    public Page<MaintenanceTicketDTO> getMyTickets(Long userId, Pageable pageable) {
+        return ticketRepository.findAll((root, query, cb) -> cb.equal(root.get("reportedByUserId"), userId), pageable)
+                .map(this::mapToDTO);
+    }
+
+    @Override
+    public MaintenanceTicketDTO getTicketById(Long id) {
+        return ticketRepository.findById(id)
+                .map(this::mapToDTO)
+                .orElseThrow(() -> new ResourceNotFoundException("Maintenance ticket not found with id: " + id));
+    }
+
+    @Override
+    public Page<MaintenanceTicketDTO> getUpcomingMaintenance(Pageable pageable) {
+        return ticketRepository.findAll((root, query, cb) -> cb.greaterThanOrEqualTo(root.get("scheduledDate"), LocalDateTime.now()), pageable)
+                .map(this::mapToDTO);
+    }
+
+    private void validateStatusTransition(MaintenanceStatus current, MaintenanceStatus next) {
+        if (current == next) return;
+        
+        switch (current) {
+            case OPEN:
+                if (next != MaintenanceStatus.IN_PROGRESS && next != MaintenanceStatus.CLOSED) {
+                    throw new ConflictException("OPEN ticket can only transition to IN_PROGRESS or CLOSED");
+                }
+                break;
+            case IN_PROGRESS:
+                if (next != MaintenanceStatus.RESOLVED && next != MaintenanceStatus.CLOSED) {
+                    throw new ConflictException("IN_PROGRESS ticket can only transition to RESOLVED or CLOSED");
+                }
+                break;
+            case RESOLVED:
+                if (next != MaintenanceStatus.CLOSED) {
+                    throw new ConflictException("RESOLVED ticket can only transition to CLOSED");
+                }
+                break;
+            case CLOSED:
+                throw new ConflictException("CLOSED ticket cannot be changed");
+        }
+    }
+
+    private MaintenanceTicketDTO mapToDTO(MaintenanceTicket ticket) {
+        return MaintenanceTicketDTO.builder()
+                .id(ticket.getId())
+                .ticketId(ticket.getTicketId())
+                .assetId(ticket.getAssetId())
+                .reportedByUserId(ticket.getReportedByUserId())
+                .technicianId(ticket.getTechnicianId())
+                .status(ticket.getStatus())
+                .priority(ticket.getPriority())
+                .description(ticket.getDescription())
+                .notes(ticket.getNotes())
+                .resolutionDetails(ticket.getResolutionDetails())
+                .cost(ticket.getCost())
+                .createdAt(ticket.getCreatedAt())
+                .resolvedAt(ticket.getResolvedAt())
+                .scheduledDate(ticket.getScheduledDate())
+                .build();
+    }
+
+    private void notifyAllAssetManagers(String message, String type) {
+        try {
+            List<Long> managerIds = authServiceClient.getAllUsers().stream()
+                    .filter(user -> Boolean.TRUE.equals(user.enabled))
+                    .filter(user -> user.role != null && user.role.name != null)
+                    .filter(user -> "ROLE_ASSET_MANAGER".equals(user.role.name.trim().toUpperCase(Locale.ROOT)))
+                    .map(user -> user.id)
+                    .filter(id -> id != null)
+                    .distinct()
+                    .collect(Collectors.toList());
+
+            if (managerIds.isEmpty()) {
+                return;
+            }
+
+            for (Long managerId : managerIds) {
+                try {
+                    notificationServiceClient.notifyMaintenance(
+                            new NotificationServiceClient.NotificationRequest(
+                                    managerId,
+                                    message,
+                                    type
+                            )
+                    );
+                } catch (Exception e) {
+                    // Log individual notification failures but continue
+                    System.err.println("Notification delivery failed for manager " + managerId + ": " + e.getMessage());
+                }
+            }
+        } catch (Exception e) {
+            // Log overall failure but don't throw
+            System.err.println("Failed to notify asset managers: " + e.getMessage());
+        }
+    }
+}

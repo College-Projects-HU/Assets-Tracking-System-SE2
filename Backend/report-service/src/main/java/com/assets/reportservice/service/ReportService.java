@@ -66,7 +66,7 @@ public class ReportService {
 
         // Active assignments: map to DTO
         List<AssignmentDTO> activeAssignments = assignments.stream()
-                .map(a -> new AssignmentDTO(a.id, a.assetId, a.assigneeId, a.assigneeName, a.status))
+                .map(a -> new AssignmentDTO(a.id, a.assetId, a.userId, a.userName, a.status))
                 .collect(Collectors.toList());
 
         // Maintenance costs
@@ -149,6 +149,17 @@ public class ReportService {
                 .map(this::toAuditLogDTO)
                 .collect(Collectors.toList());
         return new PageImpl<>(content, pageable, entries.getTotalElements());
+    }
+
+    public AuditLogDTO saveAuditLog(AuditLogDTO dto) {
+        AuditLogEntry entry = new AuditLogEntry();
+        entry.setActor(dto.actor != null ? dto.actor : "unknown");
+        entry.setAction(dto.action != null ? dto.action : "UNKNOWN");
+        entry.setDetails(dto.details != null ? dto.details : "");
+        entry.setResourceType(dto.resourceType != null ? dto.resourceType : "UNKNOWN");
+        entry.setResourceId(dto.resourceId);
+        AuditLogEntry saved = auditLogRepository.save(entry);
+        return toAuditLogDTO(saved);
     }
 
     private ResponseEntity<StreamingResponseBody> csvResponse(String filename, StreamingResponseBody body) {

@@ -69,8 +69,8 @@ class ReportApiIntegrationTest {
         AssignmentServiceClient.AssignmentDTO assignment = new AssignmentServiceClient.AssignmentDTO();
         assignment.id = 11L;
         assignment.assetId = 1L;
-        assignment.assigneeId = 7L;
-        assignment.assigneeName = "Jane Doe";
+        assignment.userId = 7L;
+        assignment.userName = "Jane Doe";
         assignment.status = "ACTIVE";
 
         MaintenanceServiceClient.MaintenanceDTO maintenance = new MaintenanceServiceClient.MaintenanceDTO();

@@ -2,7 +2,7 @@ import axios from 'axios';
 import { useAuthStore } from '@/store/authStore';
 
 // Points to Spring Cloud Gateway
-const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080/api';
+const API_BASE = import.meta.env.VITE_API_BASE_URL || '/api';
 
 const api = axios.create({
   baseURL: API_BASE,
@@ -14,8 +14,9 @@ const api = axios.create({
 api.interceptors.request.use(
   (config) => {
     const user = useAuthStore.getState().user;
-    if (user?.token) {
-      config.headers.Authorization = `Bearer ${user.token}`;
+    const token = user?.accessToken || user?.token;
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
     }
     return config;
   },
@@ -26,9 +27,12 @@ api.interceptors.request.use(
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error.response?.status === 401) {
+    const requestUrl = String(error.config?.url || '');
+    const isAuthRequest = requestUrl.includes('/auth/login') || requestUrl.includes('/auth/register') || requestUrl.includes('/auth/refresh');
+    if (error.response?.status === 401 && !isAuthRequest) {
       useAuthStore.getState().logout();
-      window.location.href = '/login';
+      // Let Protected routes redirect to /login through React Router,
+      // avoiding hard reload side-effects on SPA routes.
     }
     return Promise.reject(error);
   }

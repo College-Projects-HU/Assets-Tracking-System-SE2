@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { useNavigate, Navigate } from 'react-router-dom';
 import { useAuth } from '@/lib/auth';
+import authService from '@/services/authService';
+import userService from '@/services/userService';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -14,35 +16,117 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [form, setForm] = useState<{ name: string; email: string; password: string; role: UserRole }>({ name: '', email: '', password: '', role: 'EMPLOYEE' });
   const [error, setError] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
 
   if (isAuthenticated) return <Navigate to="/dashboard" replace />;
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
 
-    if (!form.email || !form.password) {
+    if (!form.email || !form.password || (isRegister && !form.name)) {
       setError('Please fill in all fields');
       return;
     }
 
-    if (!isRegister && form.email === 'admin@ats.com' && form.password === 'admin') {
-      login({ id: 4, name: 'Fatima Nour', email: form.email, role: 'ADMIN', token: 'demo-token-admin' });
-      navigate('/dashboard');
-    } else if (!isRegister && form.email === 'manager@ats.com' && form.password === 'manager') {
-      login({ id: 5, name: 'Youssef Mahmoud', email: form.email, role: 'ASSET_MANAGER', token: 'demo-token-mgr' });
-      navigate('/dashboard');
-    } else if (!isRegister && form.email === 'employee@ats.com' && form.password === 'employee') {
-      login({ id: 1, name: 'Ahmed Hassan', email: form.email, role: 'EMPLOYEE', token: 'demo-token-emp' });
-      navigate('/dashboard');
-    } else if (isRegister && form.name && form.email && form.password) {
-      login({ id: 99, name: form.name, email: form.email, role: form.role, token: 'demo-token-new' });
-      navigate('/dashboard');
-    } else if (!isRegister) {
-      setError('Invalid credentials. See demo accounts below.');
-    } else {
-      setError('Please fill in all fields');
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(form.email)) {
+      setError('Please enter a valid email address');
+      return;
     }
+
+    if (form.password.length < 6) {
+      setError('Password must be at least 6 characters long');
+      return;
+    }
+
+    setIsLoading(true);
+    let authResponse;
+    try {
+        authResponse = isRegister
+          ? await authService.register({ fullName: form.name, email: form.email, password: form.password, role: form.role })
+          : await authService.login({ email: form.email, password: form.password });
+
+        if (authResponse.data.tokenType === 'Pending_Approval') {
+          setError('Registration successful. Your account is pending admin approval.');
+          setIsLoading(false);
+          return;
+        }
+      } catch (err) {
+        console.error('Auth error', err);
+        let responseMessage = '';
+        if (typeof err === 'object' && err !== null && 'response' in err) {
+          const axiosErr = err as {
+            response?: {
+              status?: number;
+              statusText?: string;
+              data?: { message?: string; errors?: Record<string, string> } | string;
+            };
+            message?: string;
+          };
+
+          const rawData = axiosErr.response?.data;
+          if (typeof rawData === 'string') {
+            try {
+              const parsed = JSON.parse(rawData) as { message?: string };
+              responseMessage = parsed.message || rawData;
+            } catch {
+              responseMessage = rawData;
+            }
+          } else {
+            responseMessage =
+              rawData?.message ||
+              Object.values(rawData?.errors || {}).join(', ');
+          }
+
+          if (!responseMessage && axiosErr.response?.status) {
+            responseMessage = `Request failed (${axiosErr.response.status}${axiosErr.response.statusText ? ` ${axiosErr.response.statusText}` : ''}).`;
+          }
+
+          if (!responseMessage && axiosErr.message) {
+            responseMessage = axiosErr.message;
+          }
+        }
+
+        setError(responseMessage || (err instanceof Error ? err.message : String(err)) || 'Authentication failed. Check the backend is running and the credentials are valid.');
+        setIsLoading(false);
+        return;
+      }
+
+      try {
+        const baseUser = {
+          id: 0,
+          name: form.name || form.email,
+          email: form.email,
+          role: form.role,
+          token: authResponse.data.accessToken,
+          accessToken: authResponse.data.accessToken,
+          refreshToken: authResponse.data.refreshToken,
+        };
+
+        login(baseUser);
+
+        try {
+          const profileResponse = await userService.getMyProfile();
+          const profile = profileResponse.data;
+
+          login({
+            ...baseUser,
+            id: profile.id,
+            name: profile.name,
+            email: profile.email,
+            role: profile.role,
+          });
+        } catch (profileErr) {
+          console.warn('Signed in, but profile lookup failed. Using basic account data.', profileErr);
+        }
+
+        navigate('/dashboard');
+      } catch (err) {
+        console.error('Post-auth flow error', err);
+        setError('Account created, but sign-in session setup failed. Please try signing in with your new account.');
+        setIsLoading(false);
+      }
   };
 
   return (
@@ -113,7 +197,7 @@ export default function LoginPage() {
               <div className="space-y-2">
                 <Label>Role</Label>
                 <div className="flex gap-2">
-                  {(['EMPLOYEE', 'ASSET_MANAGER', 'ADMIN'] as const).map(role => (
+                  {(['EMPLOYEE', 'ASSET_MANAGER'] as const).map(role => (
                     <button
                       key={role}
                       type="button"
@@ -128,8 +212,8 @@ export default function LoginPage() {
                 </div>
               </div>
             )}
-            <Button type="submit" className="w-full" size="lg">
-              {isRegister ? 'Create Account' : 'Sign In'}
+            <Button type="submit" className="w-full" size="lg" disabled={isLoading}>
+              {isLoading ? 'Processing...' : (isRegister ? 'Create Account' : 'Sign In')}
             </Button>
           </form>
 
@@ -140,14 +224,6 @@ export default function LoginPage() {
             </button>
           </p>
 
-          {!isRegister && (
-            <div className="mt-6 p-4 bg-muted rounded-lg">
-              <p className="text-xs font-medium text-muted-foreground mb-2">Demo Credentials:</p>
-              <p className="text-xs text-muted-foreground">Admin: admin@ats.com / admin</p>
-              <p className="text-xs text-muted-foreground">Asset Manager: manager@ats.com / manager</p>
-              <p className="text-xs text-muted-foreground">Employee: employee@ats.com / employee</p>
-            </div>
-          )}
         </div>
       </div>
     </div>

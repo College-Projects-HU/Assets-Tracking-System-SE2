@@ -17,13 +17,22 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(AuthException.class)
     public ResponseEntity<ApiError> handleAuthException(AuthException ex, WebRequest request) {
+        HttpStatus status = HttpStatus.UNAUTHORIZED;
+        String message = ex.getMessage();
+
+        if (message != null && message.toLowerCase().contains("already exists")) {
+            status = HttpStatus.CONFLICT;
+        } else if (message != null && message.toLowerCase().contains("role not found")) {
+            status = HttpStatus.BAD_REQUEST;
+        }
+
         ApiError error = ApiError.builder()
                 .timestamp(LocalDateTime.now())
-                .status(HttpStatus.UNAUTHORIZED.value())
-                .message(ex.getMessage())
+                .status(status.value())
+                .message(message)
                 .path(request.getDescription(false).replace("uri=", ""))
                 .build();
-        return new ResponseEntity<>(error, HttpStatus.UNAUTHORIZED);
+        return new ResponseEntity<>(error, status);
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)

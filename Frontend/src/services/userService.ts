@@ -1,26 +1,61 @@
 import api from './api';
+import type { BackendUserDto, PageResponse } from '@/lib/backend';
+import { mapUserDto } from '@/lib/backend';
 import type { StaffMember } from '@/lib/mock-data';
 
 export interface UpdateProfileRequest {
-  name: string;
-  department?: string;
+  fullName: string;
+}
+
+export interface UpdateRoleRequest {
+  role: 'ADMIN' | 'ASSET_MANAGER' | 'EMPLOYEE';
 }
 
 const userService = {
   getAll: () =>
-    api.get<StaffMember[]>('/users'),
+    api.get<BackendUserDto[]>('/users').then((response) => ({
+      ...response,
+      data: (response.data || []).map(mapUserDto),
+    })),
 
-  getById: (id: number) =>
-    api.get<StaffMember>(`/users/${id}`),
+  getMyProfile: () =>
+    api.get<BackendUserDto>('/users/profile').then((response) => ({
+      ...response,
+      data: mapUserDto(response.data),
+    })),
 
-  updateProfile: (id: number, data: UpdateProfileRequest) =>
-    api.put<StaffMember>(`/users/${id}`, data),
+  updateMyProfile: (data: UpdateProfileRequest) =>
+    api.put<BackendUserDto>('/users/profile', data).then((response) => ({
+      ...response,
+      data: mapUserDto(response.data),
+    })),
+
+  updateRole: (id: number, role: UpdateRoleRequest['role']) =>
+    api.put<BackendUserDto>(`/users/${id}/role`, null, { params: { role } }).then((response) => ({
+      ...response,
+      data: mapUserDto(response.data),
+    })),
 
   delete: (id: number) =>
     api.delete(`/users/${id}`),
 
-  getByDepartment: (department: string) =>
-    api.get<StaffMember[]>(`/users/department/${department}`),
+  activate: (id: number) =>
+    api.put<BackendUserDto>(`/users/${id}/activate`).then((response) => ({
+      ...response,
+      data: mapUserDto(response.data),
+    })),
+
+  getById: (id: number) =>
+    api.get<BackendUserDto>('/users/profile').then((response) => ({
+      ...response,
+      data: mapUserDto(response.data),
+    })),
+
+  getByDepartment: (_department: string) =>
+    api.get<StaffMember[]>('/users').then((response) => ({
+      ...response,
+      data: (response.data || []).map(mapUserDto),
+    })),
 };
 
 export default userService;

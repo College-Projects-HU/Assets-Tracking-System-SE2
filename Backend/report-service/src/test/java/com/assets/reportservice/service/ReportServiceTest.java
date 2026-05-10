@@ -66,8 +66,8 @@ class ReportServiceTest {
         AssignmentServiceClient.AssignmentDTO assignment = new AssignmentServiceClient.AssignmentDTO();
         assignment.id = 10L;
         assignment.assetId = 1L;
-        assignment.assigneeId = 55L;
-        assignment.assigneeName = "Jane Doe";
+        assignment.userId = 55L;
+        assignment.userName = "Jane Doe";
         assignment.status = "ACTIVE";
 
         MaintenanceServiceClient.MaintenanceDTO repairOne = new MaintenanceServiceClient.MaintenanceDTO();
